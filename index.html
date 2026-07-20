@@ -422,7 +422,9 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 ===================================================== */
 const SUPABASE_URL = 'https://pdxnpnlwrtswwifevlil.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_GL8MYellfvYl3sz76ZOKVw_n4JbUe4Y';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { flowType: 'implicit' }
+});
 
 const Store = {
   key: 'borcdefteri_v1',
