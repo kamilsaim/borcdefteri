@@ -75,6 +75,7 @@ h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
 .tcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
 .tcard .tl{font-size:.72rem;color:var(--muted);font-weight:700;letter-spacing:.05em}
 .tcard .tv{font-family:var(--mono);font-size:1.35rem;font-weight:600;margin-top:6px;white-space:nowrap}
+.tcard .tsub{font-size:.7rem;color:var(--muted);margin-top:4px}
 .tv.pos{color:var(--alacak)} .tv.neg{color:var(--borc)}
 .netbar{
   margin-top:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
@@ -286,8 +287,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <button id="mNext">›</button>
     </div>
     <div class="totals" style="margin-top:12px">
-      <div class="tcard"><div class="tl">Alacağım</div><div class="tv pos" id="mAlacak">₺0</div></div>
-      <div class="tcard"><div class="tl">Borcum</div><div class="tv neg" id="mBorc">₺0</div></div>
+      <div class="tcard"><div class="tl">Alacağım</div><div class="tv pos" id="mAlacak">₺0</div><div class="tsub" id="mAlacakSub"></div></div>
+      <div class="tcard"><div class="tl">Borcum</div><div class="tv neg" id="mBorc">₺0</div><div class="tsub" id="mBorcSub"></div></div>
     </div>
     <div class="netbar"><span style="font-size:.8rem;color:var(--muted);font-weight:700">Ay net</span><b id="mNet">₺0</b></div>
 
@@ -739,17 +740,18 @@ function renderAylik(){
   const ym = monthCursor.y+'-'+String(monthCursor.m+1).padStart(2,'0');
   const ref = todayISO();
   const rows = [], rowsTek = [];
-  let alacak=0, borc=0;
+  let alacak=0, alacakOdenen=0, borc=0, borcOdenen=0;
   state.people.forEach(p => {
     ['recv','pay'].forEach(side => {
       personItems(p.id, side).items.forEach(it => {
         if (it.due.slice(0,7) !== ym) return;
         const isTek = it.debt.kind==='installment' && it.debt.count===1;
-        if (side==='recv') alacak += it.amount; else borc += it.amount;
+        if (side==='recv'){ alacak += it.amount; alacakOdenen += it.paid } else { borc += it.amount; borcOdenen += it.paid }
+        const rem = Math.round((it.amount-it.paid)*100)/100;
         const row = rowHTML({
           name: p.name,
-          desc: (it.debt.kind==='installment' ? (isTek?'Tek çekim · ':`${it.idx+1}/${it.debt.count}. taksit · `) : (it.debt.kind==='cash_in'?'Nakit borç · ':'Nakit alacak · ')) + fmtShort(it.due) + (it.debt.desc?` · ${it.debt.desc}`:''),
-          amount: (side==='recv'?'+':'−') + TL(it.amount),
+          desc: (it.debt.kind==='installment' ? (isTek?'Tek çekim · ':`${it.idx+1}/${it.debt.count}. taksit · `) : (it.debt.kind==='cash_in'?'Nakit borç · ':'Nakit alacak · ')) + fmtShort(it.due) + (it.debt.desc?` · ${it.debt.desc}`:'') + (it.paid>0?` · ${TL(it.paid)} ödendi`:''),
+          amount: (side==='recv'?'+':'−') + TL(rem),
           cls: side==='recv'?'pos':'neg',
           chip: itemStatus(it, ref)
         });
@@ -758,9 +760,14 @@ function renderAylik(){
     });
   });
   alacak = Math.round(alacak*100)/100; borc = Math.round(borc*100)/100;
+  alacakOdenen = Math.round(alacakOdenen*100)/100; borcOdenen = Math.round(borcOdenen*100)/100;
+  const alacakKalan = Math.round((alacak-alacakOdenen)*100)/100;
+  const borcKalan = Math.round((borc-borcOdenen)*100)/100;
   document.getElementById('mAlacak').textContent = TL(alacak);
   document.getElementById('mBorc').textContent = TL(borc);
-  const net = alacak - borc;
+  document.getElementById('mAlacakSub').textContent = `Ödenen ${TL(alacakOdenen)} · Kalan ${TL(alacakKalan)}`;
+  document.getElementById('mBorcSub').textContent = `Ödenen ${TL(borcOdenen)} · Kalan ${TL(borcKalan)}`;
+  const net = alacakKalan - borcKalan;
   const netEl = document.getElementById('mNet');
   netEl.textContent = (net>=0?'+':'−') + TL(Math.abs(net));
   netEl.style.color = net>=0 ? 'var(--alacak)' : 'var(--borc)';
