@@ -694,7 +694,7 @@ function renderOzet(){
 
   const mkRow = o => rowHTML({
     name: o.person.name,
-    desc: (o.it.debt.kind==='installment' ? `${o.it.idx+1}/${o.it.debt.count}. taksit · ` : '') + fmtShort(o.it.due) + (o.it.paid>0?` · ${TL(o.it.paid)} ödendi`:''),
+    desc: (o.it.debt.kind==='installment' && o.it.debt.count>1 ? `${o.it.idx+1}/${o.it.debt.count}. taksit · ` : '') + fmtShort(o.it.due) + (o.it.paid>0?` · ${TL(o.it.paid)} ödendi`:''),
     amount: (o.side==='recv'?'+':'−') + TL(o.rem),
     cls: o.side==='recv'?'pos':'neg',
     chip: itemStatus(o.it, ref)
@@ -709,7 +709,7 @@ function renderOzet(){
       amount: (p.dir==='in'?'+':'−')+TL(p.amount), cls: p.dir==='in'?'pos':'neg'})})),
     ...state.debts.map(d => ({date:d.date, html: rowHTML({
       name: personName(d.personId),
-      desc: (d.kind==='installment'?`${d.count} taksit · `:(d.kind==='cash_out'?'Nakit verdim · ':'Nakit aldım · ')) + fmtShort(d.date) + (d.desc?` · ${d.desc}`:''),
+      desc: (d.kind==='installment'?(d.count>1?`${d.count} taksit · `:'Tek çekim · '):(d.kind==='cash_out'?'Nakit verdim · ':'Nakit aldım · ')) + fmtShort(d.date) + (d.desc?` · ${d.desc}`:''),
       amount: TL(d.amount), cls:'mut'})}))
   ].sort((a,b)=>a.date<b.date?1:-1).slice(0,8);
   document.getElementById('listSon').innerHTML = moves.length ? moves.map(m=>m.html).join('') : '<div class="empty">Henüz kayıt yok. + ile başlayın.</div>';
@@ -727,7 +727,7 @@ function renderAylik(){
         const rem = Math.round((it.amount-it.paid)*100)/100;
         rows.push(rowHTML({
           name: p.name,
-          desc: (it.debt.kind==='installment' ? `${it.idx+1}/${it.debt.count}. taksit · ` : (it.debt.kind==='cash_in'?'Nakit borç · ':'Nakit alacak · ')) + fmtShort(it.due) + (it.debt.desc?` · ${it.debt.desc}`:''),
+          desc: (it.debt.kind==='installment' ? (it.debt.count>1?`${it.idx+1}/${it.debt.count}. taksit · `:'Tek çekim · ') : (it.debt.kind==='cash_in'?'Nakit borç · ':'Nakit alacak · ')) + fmtShort(it.due) + (it.debt.desc?` · ${it.debt.desc}`:''),
           amount: (side==='recv'?'+':'−') + TL(it.amount),
           cls: side==='recv'?'pos':'neg',
           chip: itemStatus(it, ref)
@@ -777,7 +777,7 @@ function renderDetay(){
   document.getElementById('dDebts').innerHTML = debts.length ? debts.map(d => {
     const map = d.kind==='cash_in' ? pMap : rMap;
     const items = schedule(d).map(s => map[d.id+'#'+s.idx]).filter(Boolean);
-    const kindTxt = d.kind==='installment' ? `💳 ${d.count} Taksit` : d.kind==='cash_out' ? '↗ Nakit Verdim' : '↙ Nakit Aldım';
+    const kindTxt = d.kind==='installment' ? (d.count===1 ? '💳 Tek Çekim' : `💳 ${d.count} Taksit`) : d.kind==='cash_out' ? '↗ Nakit Verdim' : '↙ Nakit Aldım';
     const plan = items.map(it => {
       const st = itemStatus(it, ref);
       const tick = st==='odendi' ? '<span class="tick full">✓</span>'
@@ -786,7 +786,7 @@ function renderDetay(){
                  : '<span class="tick"></span>';
       const rem = Math.round((it.amount-it.paid)*100)/100;
       return `<div class="prow">${tick}
-        <span class="pd">${d.kind==='installment'?(it.idx+1)+'/'+d.count+' · ':''}${fmtShort(it.due)}</span>
+        <span class="pd">${d.kind==='installment'&&d.count>1?(it.idx+1)+'/'+d.count+' · ':''}${fmtShort(it.due)}</span>
         ${it.paid>0&&rem>0?`<span style="font-size:.72rem;color:var(--muted)">${TL(it.paid)} /</span>`:''}
         <span class="pa">${TL(it.amount)}</span></div>`;
     }).join('');
@@ -986,8 +986,8 @@ function fillSettings(){
   p.onchange = async () => { state.settings.payDay = Number(p.value); await Store.save(state); render() };
 }
 const cSel = document.getElementById('fDebtCount');
-for (const n of [2,3,4,5,6,7,8,9,10,11,12,18,24,36]) cSel.innerHTML += `<option value="${n}">${n} taksit</option>`;
-cSel.value = 12;
+for (const n of [1,2,3,4,5,6,7,8,9,10,11,12]) cSel.innerHTML += `<option value="${n}">${n===1?'Tek çekim':n+' taksit'}</option>`;
+cSel.value = 1;
 
 document.getElementById('btnExport').onclick = () => {
   const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
