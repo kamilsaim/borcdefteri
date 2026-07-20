@@ -156,6 +156,8 @@ h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
 .debthead .t{flex:1;font-weight:700;font-size:.92rem}
 .del{color:var(--muted);font-size:1rem;padding:4px 8px}
 .del:active{color:var(--borc)}
+.edit{color:var(--muted);font-size:.95rem;padding:4px 6px}
+.edit:active{color:var(--brass)}
 
 /* ---------- Alt menü + FAB ---------- */
 nav.tabs{
@@ -794,8 +796,9 @@ function renderDetay(){
         <span class="pa">${TL(it.amount)}</span></div>`;
     }).join('');
     return `<div class="debthead">
-        <div class="t">${kindTxt}${d.desc?` · <span style="font-weight:500;color:var(--muted)">${d.desc}</span>`:''}</div>
+        <div class="t">${kindTxt}${d.desc?` · <span style="font-weight:500;color:var(--muted)">${d.desc}</span>`:''}<br><span style="font-weight:400;font-size:.74rem;color:var(--muted)">${fmtDate(d.date)}</span></div>
         <span class="amt mut" style="font-size:.85rem">${TL(d.amount)}</span>
+        <button class="edit" data-editdebt="${d.id}">✎</button>
         <button class="del" data-deldebt="${d.id}">🗑</button>
       </div><div class="plan">${plan}</div>`;
   }).join('') : '<div class="empty">Kayıtlı borç yok</div>';
@@ -806,13 +809,24 @@ function renderDetay(){
       <div class="who"><div class="n" style="font-weight:600;font-size:.86rem">${x.dir==='in'?'Tahsilat':'Ödeme'}</div>
       <div class="d">${fmtDate(x.date)}${x.note?` · ${x.note}`:''}</div></div>
       <div class="amt ${x.dir==='in'?'pos':'neg'}">${x.dir==='in'?'+':'−'}${TL(x.amount)}</div>
+      <button class="edit" data-editpay="${x.id}">✎</button>
       <button class="del" data-delpay="${x.id}">🗑</button>
     </div>`).join('') : '<div class="empty">Ödeme yok</div>';
 
+  document.querySelectorAll('[data-editdebt]').forEach(b => b.onclick = () => {
+    const d = state.debts.find(x=>x.id===b.dataset.editdebt);
+    if (!d) return;
+    openDebtForm(d.kind==='installment'?'taksit':d.kind, d.personId, d);
+  });
   document.querySelectorAll('[data-deldebt]').forEach(b => b.onclick = async () => {
     if (!await askConfirm('Bu borç kaydı ve taksit planı silinsin mi?')) return;
     state.debts = state.debts.filter(d=>d.id!==b.dataset.deldebt);
     await Store.save(state); render();
+  });
+  document.querySelectorAll('[data-editpay]').forEach(b => b.onclick = () => {
+    const x = state.payments.find(p=>p.id===b.dataset.editpay);
+    if (!x) return;
+    openPayForm(x.dir, x.personId, x);
   });
   document.querySelectorAll('[data-delpay]').forEach(b => b.onclick = async () => {
     if (!await askConfirm('Bu ödeme kaydı silinsin mi?')) return;
@@ -859,18 +873,22 @@ function toggleNewPerson(sel){
 }
 
 let debtKind = 'taksit';
-function openDebtForm(kind, personId){
+let editingDebtId = null;
+function openDebtForm(kind, personId, existing){
+  editingDebtId = existing ? existing.id : null;
   debtKind = kind;
   document.getElementById('fDebtTitle').textContent =
-    kind==='taksit' ? 'Kart ile Taksitli Alışveriş' : kind==='cash_out' ? 'Nakit Verdim' : 'Nakit Aldım';
+    (existing?'Düzenle · ':'') + (kind==='taksit' ? 'Kart ile Taksitli Alışveriş' : kind==='cash_out' ? 'Nakit Verdim' : 'Nakit Aldım');
   document.getElementById('fTaksitWrap').style.display = kind==='taksit' ? 'block' : 'none';
   document.getElementById('fCashDateWrap').style.display = kind==='taksit' ? 'none' : 'block';
-  fillPersonSelect(document.getElementById('fDebtPerson'), personId);
-  document.getElementById('fDebtDesc').value = '';
-  document.getElementById('fDebtAmount').value = '';
+  fillPersonSelect(document.getElementById('fDebtPerson'), existing ? existing.personId : personId);
+  document.getElementById('fDebtPerson').disabled = !!existing;
+  document.getElementById('fDebtDesc').value = existing ? (existing.desc||'') : '';
+  document.getElementById('fDebtAmount').value = existing ? existing.amount : '';
   document.getElementById('fNewPerson').value = '';
-  document.getElementById('fDebtDate').value = todayISO();
-  document.getElementById('fCashDate').value = todayISO();
+  document.getElementById('fDebtDate').value = existing ? existing.date : todayISO();
+  document.getElementById('fCashDate').value = existing ? existing.date : todayISO();
+  if (kind==='taksit') document.getElementById('fDebtCount').value = existing ? existing.count : 1;
   updatePreview();
   openSheet('ovDebt');
 }
@@ -906,26 +924,37 @@ document.getElementById('fDebtSave').onclick = async () => {
   const amount = Number(document.getElementById('fDebtAmount').value);
   if (!amount || amount<=0){ alert('Geçerli bir tutar girin'); return }
   const desc = document.getElementById('fDebtDesc').value.trim();
+  let payload;
   if (debtKind==='taksit'){
     const date = document.getElementById('fDebtDate').value || todayISO();
     const count = Number(document.getElementById('fDebtCount').value);
-    state.debts.push({ id:uid(), personId:pid, kind:'installment', amount, date, desc, count,
-      firstDue: firstDueDate(date, state.settings.cutoffDay, state.settings.payDay) });
+    payload = { kind:'installment', amount, date, desc, count,
+      firstDue: firstDueDate(date, state.settings.cutoffDay, state.settings.payDay) };
   } else {
     const date = document.getElementById('fCashDate').value || todayISO();
-    state.debts.push({ id:uid(), personId:pid, kind:debtKind, amount, date, desc });
+    payload = { kind:debtKind, amount, date, desc };
+  }
+  if (editingDebtId){
+    const i = state.debts.findIndex(d=>d.id===editingDebtId);
+    if (i>-1) state.debts[i] = { ...state.debts[i], ...payload };
+    editingDebtId = null;
+  } else {
+    state.debts.push({ id:uid(), personId:pid, ...payload });
   }
   await Store.save(state); closeSheets(); render();
 };
 
 let payDir = 'in';
-function openPayForm(dir, personId){
-  payDir = dir || 'in';
+let editingPayId = null;
+function openPayForm(dir, personId, existing){
+  editingPayId = existing ? existing.id : null;
+  payDir = existing ? existing.dir : (dir || 'in');
   setSeg();
-  fillPersonSelect(document.getElementById('fPayPerson'), personId);
-  document.getElementById('fPayAmount').value='';
-  document.getElementById('fPayNote').value='';
-  document.getElementById('fPayDate').value = todayISO();
+  fillPersonSelect(document.getElementById('fPayPerson'), existing ? existing.personId : personId);
+  document.getElementById('fPayPerson').disabled = !!existing;
+  document.getElementById('fPayAmount').value = existing ? existing.amount : '';
+  document.getElementById('fPayNote').value = existing ? (existing.note||'') : '';
+  document.getElementById('fPayDate').value = existing ? existing.date : todayISO();
   openSheet('ovPay');
 }
 function setSeg(){
@@ -941,9 +970,16 @@ document.getElementById('fPaySave').onclick = async () => {
   if (pid==='__new'){ alert('Önce kişiyi borç kaydıyla ekleyin'); return }
   const amount = Number(document.getElementById('fPayAmount').value);
   if (!amount || amount<=0){ alert('Geçerli bir tutar girin'); return }
-  state.payments.push({ id:uid(), personId:pid, amount, dir:payDir,
+  const payload = { amount, dir:payDir,
     date: document.getElementById('fPayDate').value || todayISO(),
-    note: document.getElementById('fPayNote').value.trim() });
+    note: document.getElementById('fPayNote').value.trim() };
+  if (editingPayId){
+    const i = state.payments.findIndex(x=>x.id===editingPayId);
+    if (i>-1) state.payments[i] = { ...state.payments[i], ...payload };
+    editingPayId = null;
+  } else {
+    state.payments.push({ id:uid(), personId:pid, ...payload });
+  }
   await Store.save(state); closeSheets(); render();
 };
 
