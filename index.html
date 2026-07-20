@@ -329,6 +329,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 
   <!-- AYARLAR -->
   <section class="view" id="view-ayarlar">
+    <h2 class="sec">Hesap</h2>
+    <div class="hint" id="accountEmail">—</div>
     <h2 class="sec">Kart Ayarları</h2>
     <div class="card">
       <div class="setrow">
@@ -1172,8 +1174,16 @@ async function bootApp(){
   if (loaded) state = { ...state, ...loaded, settings: { cutoffDay:23, payDay:1, ...loaded.settings } };
   fillSettings();
   renderSyncStatus();
+  renderAccountEmail();
   showApp();
   show(currentTab);
+}
+
+async function renderAccountEmail(){
+  const el = document.getElementById('accountEmail');
+  if (!el) return;
+  const { data: { user } } = await sb.auth.getUser();
+  el.textContent = user?.email ? `● ${user.email}` : '—';
 }
 
 /* Başlat */
