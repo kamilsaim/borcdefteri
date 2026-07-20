@@ -281,7 +281,16 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <div class="mt" id="mTitle"></div>
       <button id="mNext">›</button>
     </div>
-    <div class="card" style="margin-top:12px" id="listAy"></div>
+    <div class="totals" style="margin-top:12px">
+      <div class="tcard"><div class="tl">Alacağım</div><div class="tv pos" id="mAlacak">₺0</div></div>
+      <div class="tcard"><div class="tl">Borcum</div><div class="tv neg" id="mBorc">₺0</div></div>
+    </div>
+    <div class="netbar"><span style="font-size:.8rem;color:var(--muted);font-weight:700">Ay net</span><b id="mNet">₺0</b></div>
+
+    <h2 class="sec">Taksit / Nakit</h2>
+    <div class="card" id="listAy"></div>
+    <h2 class="sec">Tek Çekimler</h2>
+    <div class="card" id="listAyTek"></div>
   </section>
 
   <!-- KİŞİLER -->
@@ -723,23 +732,34 @@ function renderAylik(){
   document.getElementById('mTitle').textContent = AYLAR[monthCursor.m]+' '+monthCursor.y;
   const ym = monthCursor.y+'-'+String(monthCursor.m+1).padStart(2,'0');
   const ref = todayISO();
-  const rows = [];
+  const rows = [], rowsTek = [];
+  let alacak=0, borc=0;
   state.people.forEach(p => {
     ['recv','pay'].forEach(side => {
       personItems(p.id, side).items.forEach(it => {
         if (it.due.slice(0,7) !== ym) return;
-        const rem = Math.round((it.amount-it.paid)*100)/100;
-        rows.push(rowHTML({
+        const isTek = it.debt.kind==='installment' && it.debt.count===1;
+        if (side==='recv') alacak += it.amount; else borc += it.amount;
+        const row = rowHTML({
           name: p.name,
-          desc: (it.debt.kind==='installment' ? (it.debt.count>1?`${it.idx+1}/${it.debt.count}. taksit · `:'Tek çekim · ') : (it.debt.kind==='cash_in'?'Nakit borç · ':'Nakit alacak · ')) + fmtShort(it.due) + (it.debt.desc?` · ${it.debt.desc}`:''),
+          desc: (it.debt.kind==='installment' ? (isTek?'Tek çekim · ':`${it.idx+1}/${it.debt.count}. taksit · `) : (it.debt.kind==='cash_in'?'Nakit borç · ':'Nakit alacak · ')) + fmtShort(it.due) + (it.debt.desc?` · ${it.debt.desc}`:''),
           amount: (side==='recv'?'+':'−') + TL(it.amount),
           cls: side==='recv'?'pos':'neg',
           chip: itemStatus(it, ref)
-        }));
+        });
+        (isTek ? rowsTek : rows).push(row);
       });
     });
   });
-  document.getElementById('listAy').innerHTML = rows.length ? rows.join('') : '<div class="empty">Bu ayda vadeli kayıt yok</div>';
+  alacak = Math.round(alacak*100)/100; borc = Math.round(borc*100)/100;
+  document.getElementById('mAlacak').textContent = TL(alacak);
+  document.getElementById('mBorc').textContent = TL(borc);
+  const net = alacak - borc;
+  const netEl = document.getElementById('mNet');
+  netEl.textContent = (net>=0?'+':'−') + TL(Math.abs(net));
+  netEl.style.color = net>=0 ? 'var(--alacak)' : 'var(--borc)';
+  document.getElementById('listAy').innerHTML = rows.length ? rows.join('') : '<div class="empty">Bu ayda taksit/nakit kaydı yok</div>';
+  document.getElementById('listAyTek').innerHTML = rowsTek.length ? rowsTek.join('') : '<div class="empty">Bu ayda tek çekim yok</div>';
 }
 
 function renderKisiler(){
