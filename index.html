@@ -244,7 +244,6 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <h1 style="font-family:var(--mono);letter-spacing:.14em;color:var(--brass);font-size:1.1rem;margin-bottom:6px">BORÇ DEFTERİ</h1>
     <p style="color:var(--muted);font-size:.86rem;margin-bottom:22px">Verileriniz hesabınıza bağlı olarak saklanır.</p>
     <button class="primary" id="btnGoogleLogin" style="margin-top:0">Google ile Giriş Yap</button>
-    <p id="authDebug" style="color:var(--muted);font-size:.7rem;margin-top:16px;word-break:break-all;white-space:pre-wrap"></p>
   </div>
 </div>
 
@@ -1095,26 +1094,20 @@ async function bootApp(){
 }
 
 /* Başlat */
+const CLEAN_URL = location.origin + location.pathname;
 (async () => {
-  const dbg = document.getElementById('authDebug');
-  const log = (msg) => { if (dbg) dbg.textContent += (dbg.textContent ? '\n' : '') + msg; };
-  log('url: ' + location.href);
-  if (location.hash) log('hash var: ' + location.hash.slice(0, 120));
-  if (location.search) log('query var: ' + location.search.slice(0, 120));
-  const { data: { session }, error: getErr } = await sb.auth.getSession();
-  if (getErr) log('getSession hata: ' + getErr.message);
-  log('ilk oturum: ' + (session ? 'VAR' : 'yok'));
+  const { data: { session } } = await sb.auth.getSession();
+  // Token işlendi/işlenemedi fark etmeksizin adresteki eski hash/query'yi temizle,
+  // aksi halde bir sonraki girişte redirectTo olarak tekrar kullanılıp "##access_token" oluşuyordu.
+  if (location.hash || location.search) history.replaceState(null, '', CLEAN_URL);
   if (session) await bootApp(); else showAuthScreen();
   sb.auth.onAuthStateChange((event, session) => {
-    log('auth event: ' + event);
     if (event === 'SIGNED_IN' && document.getElementById('authScreen').classList.contains('open')) bootApp();
     if (event === 'SIGNED_OUT') showAuthScreen();
   });
 })();
-document.getElementById('btnGoogleLogin').onclick = async () => {
-  const dbg = document.getElementById('authDebug');
-  const { error } = await sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: window.location.href } });
-  if (error && dbg) dbg.textContent += (dbg.textContent ? '\n' : '') + 'signIn hata: ' + error.message;
+document.getElementById('btnGoogleLogin').onclick = () => {
+  sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: CLEAN_URL } });
 };
 </script>
 </body>
