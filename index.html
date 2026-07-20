@@ -314,6 +314,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     </div>
     <h2 class="sec">Borçlar & Taksitler</h2>
     <div class="card" id="dDebts"></div>
+    <h2 class="sec">Tek Çekimler</h2>
+    <div class="card" id="dDebtsTek"></div>
     <h2 class="sec">Ödeme Geçmişi</h2>
     <div class="card" id="dPays"></div>
   </section>
@@ -793,7 +795,9 @@ function renderDetay(){
     net>0 ? 'Size borçlu' : net<0 ? 'Siz borçlusunuz' : 'Hesap kapalı' ;
 
   const ref = todayISO();
-  const debts = state.debts.filter(d=>d.personId===p.id).sort((a,b)=>a.date<b.date?1:-1);
+  const debtsAll = state.debts.filter(d=>d.personId===p.id).sort((a,b)=>a.date<b.date?1:-1);
+  const debts = debtsAll.filter(d=>!(d.kind==='installment' && d.count===1));
+  const debtsTek = debtsAll.filter(d=>d.kind==='installment' && d.count===1);
   const rMap = {}, pMap = {};
   personItems(p.id,'recv').items.forEach(it => rMap[it.debt.id+'#'+it.idx] = it);
   personItems(p.id,'pay').items.forEach(it => pMap[it.debt.id+'#'+it.idx] = it);
@@ -801,7 +805,7 @@ function renderDetay(){
   document.getElementById('dDebts').innerHTML = debts.length ? debts.map(d => {
     const map = d.kind==='cash_in' ? pMap : rMap;
     const items = schedule(d).map(s => map[d.id+'#'+s.idx]).filter(Boolean);
-    const kindTxt = d.kind==='installment' ? (d.count===1 ? '💳 Tek Çekim' : `💳 ${d.count} Taksit`) : d.kind==='cash_out' ? '↗ Nakit Verdim' : '↙ Nakit Aldım';
+    const kindTxt = d.kind==='installment' ? `💳 ${d.count} Taksit` : d.kind==='cash_out' ? '↗ Nakit Verdim' : '↙ Nakit Aldım';
     const plan = items.map(it => {
       const st = itemStatus(it, ref);
       const tick = st==='odendi' ? '<span class="tick full">✓</span>'
@@ -821,6 +825,20 @@ function renderDetay(){
         <button class="del" data-deldebt="${d.id}">🗑</button>
       </div><div class="plan">${plan}</div>`;
   }).join('') : '<div class="empty">Kayıtlı borç yok</div>';
+
+  document.getElementById('dDebtsTek').innerHTML = debtsTek.length ? debtsTek.map(d => {
+    const map = d.kind==='cash_in' ? pMap : rMap;
+    const it = map[d.id+'#0'];
+    const st = it ? itemStatus(it, ref) : null;
+    return `<div class="row">
+      <div class="who"><div class="n" style="font-weight:600;font-size:.86rem">💳 Tek Çekim${d.desc?` · ${d.desc}`:''}</div>
+      <div class="d">${fmtDate(d.date)}</div></div>
+      ${st?`<span class="chip ${st}">${CHIP[st]}</span>`:''}
+      <div class="amt mut">${TL(d.amount)}</div>
+      <button class="edit" data-editdebt="${d.id}">✎</button>
+      <button class="del" data-deldebt="${d.id}">🗑</button>
+    </div>`;
+  }).join('') : '<div class="empty">Tek çekim yok</div>';
 
   const pays = state.payments.filter(x=>x.personId===p.id).sort((a,b)=>a.date<b.date?1:-1);
   document.getElementById('dPays').innerHTML = pays.length ? pays.map(x => `
