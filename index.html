@@ -1,0 +1,901 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0F1512">
+<title>Borç Defteri</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chivo+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0F1512;          /* defter kaplaması: koyu yeşil-siyah */
+  --surface:#18211C;
+  --surface2:#1E2A23;
+  --line:#26332B;        /* defter çizgisi */
+  --text:#EAF0EB;
+  --muted:#90A297;
+  --brass:#D9A441;       /* kapak yaldızı */
+  --brass-dim:#8A6A2C;
+  --alacak:#5BC98A;
+  --borc:#E4735C;
+  --radius:14px;
+  --mono:'Chivo Mono',monospace;
+  --sans:'Manrope',system-ui,sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html{font-size:16px}
+body{
+  background:var(--bg);color:var(--text);font-family:var(--sans);
+  min-height:100dvh;padding-bottom:calc(76px + env(safe-area-inset-bottom));
+}
+button{font-family:inherit;border:none;background:none;color:inherit;cursor:pointer}
+input,select,textarea{
+  font-family:inherit;font-size:1rem;color:var(--text);
+  background:var(--surface2);border:1px solid var(--line);border-radius:10px;
+  padding:12px;width:100%;outline:none;
+}
+input:focus,select:focus{border-color:var(--brass)}
+input[type=date]{color-scheme:dark}
+label{display:block;font-size:.78rem;color:var(--muted);margin:14px 0 6px;font-weight:600;letter-spacing:.03em}
+::placeholder{color:#5c6b61}
+
+/* ---------- Başlık: defter sırtı ---------- */
+header.app{
+  padding:calc(14px + env(safe-area-inset-top)) 18px 0;
+  position:sticky;top:0;background:linear-gradient(var(--bg) 75%,transparent);z-index:5;
+}
+.masthead{
+  display:flex;align-items:baseline;justify-content:space-between;
+  border-bottom:2px solid var(--brass-dim);padding-bottom:8px;
+}
+.masthead h1{
+  font-family:var(--mono);font-weight:700;font-size:1.05rem;letter-spacing:.14em;color:var(--brass);
+}
+.masthead .tarih{font-family:var(--mono);font-size:.72rem;color:var(--muted)}
+.ruled{height:10px;background:repeating-linear-gradient(transparent 0 4px,var(--line) 4px 5px)}
+
+/* ---------- Görünümler ---------- */
+main{padding:16px 16px 8px;max-width:560px;margin:0 auto}
+.view{display:none;animation:fade .18s ease}
+.view.active{display:block}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+h2.sec{
+  font-family:var(--mono);font-size:.72rem;font-weight:600;letter-spacing:.16em;
+  color:var(--muted);text-transform:uppercase;margin:22px 0 10px;
+  display:flex;align-items:center;gap:10px;
+}
+h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
+
+/* ---------- Özet kartları ---------- */
+.totals{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
+.tcard{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:14px}
+.tcard .tl{font-size:.72rem;color:var(--muted);font-weight:700;letter-spacing:.05em}
+.tcard .tv{font-family:var(--mono);font-size:1.35rem;font-weight:600;margin-top:6px;white-space:nowrap}
+.tv.pos{color:var(--alacak)} .tv.neg{color:var(--borc)}
+.netbar{
+  margin-top:10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:12px 14px;display:flex;justify-content:space-between;align-items:center;
+}
+.netbar b{font-family:var(--mono);font-weight:600}
+
+/* ---------- Defter satırı (imza öğesi) ---------- */
+.row{
+  display:flex;align-items:center;gap:12px;padding:12px 4px;
+  border-bottom:1px dashed var(--line);
+}
+.row:last-child{border-bottom:none}
+.row .who{flex:1;min-width:0}
+.row .who .n{font-weight:700;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .who .d{font-size:.76rem;color:var(--muted);margin-top:2px}
+.row .amt{font-family:var(--mono);font-weight:600;text-align:right;white-space:nowrap}
+.amt.pos{color:var(--alacak)} .amt.neg{color:var(--borc)} .amt.mut{color:var(--muted)}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:6px 12px;margin-bottom:12px}
+.empty{color:var(--muted);font-size:.86rem;text-align:center;padding:26px 10px}
+
+.chip{
+  display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;
+  padding:3px 8px;border-radius:99px;vertical-align:middle;
+}
+.chip.odendi{background:#1c3527;color:var(--alacak)}
+.chip.kismi{background:#3a2f18;color:var(--brass)}
+.chip.gecikti{background:#3a221d;color:var(--borc)}
+.chip.bekliyor{background:var(--surface2);color:var(--muted)}
+
+/* ---------- Aylık görünüm ---------- */
+.monthnav{display:flex;align-items:center;justify-content:space-between;margin-top:14px}
+.monthnav button{font-size:1.3rem;padding:6px 16px;color:var(--brass)}
+.monthnav .mt{font-family:var(--mono);font-weight:600;letter-spacing:.06em}
+
+/* ---------- Kişi listesi ---------- */
+.person{
+  display:flex;align-items:center;gap:12px;background:var(--surface);
+  border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:10px;
+}
+.avatar{
+  width:42px;height:42px;border-radius:12px;background:var(--surface2);
+  display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-weight:700;color:var(--brass);flex-shrink:0;border:1px solid var(--line);
+}
+
+/* ---------- Kişi detay ---------- */
+.detailhead{display:flex;align-items:center;gap:10px;margin-top:6px}
+.back{font-size:1.5rem;color:var(--brass);padding:4px 10px 4px 0}
+.detailhead h3{font-size:1.2rem;font-weight:800;flex:1}
+.balance{
+  font-family:var(--mono);font-size:1.6rem;font-weight:600;margin:14px 0 4px;
+}
+.balnote{font-size:.8rem;color:var(--muted);margin-bottom:12px}
+.actionrow{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0 4px}
+.abtn{
+  background:var(--surface2);border:1px solid var(--line);border-radius:12px;
+  padding:11px 4px;font-size:.78rem;font-weight:700;text-align:center;
+}
+.abtn.al{color:var(--alacak)} .abtn.ver{color:var(--borc)} .abtn.tk{color:var(--brass)}
+
+/* Taksit planı: defter çizgileri */
+.plan{margin:4px 0 8px;border-left:2px solid var(--line);padding-left:12px}
+.plan .prow{
+  display:flex;align-items:center;gap:10px;padding:8px 0;
+  border-bottom:1px dotted var(--line);font-size:.84rem;
+}
+.plan .prow:last-child{border-bottom:none}
+.tick{
+  width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line);flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;font-size:.7rem;font-family:var(--mono);
+}
+.tick.full{background:#1c3527;border-color:var(--alacak);color:var(--alacak)}
+.tick.half{background:#3a2f18;border-color:var(--brass);color:var(--brass)}
+.tick.late{border-color:var(--borc);color:var(--borc)}
+.prow .pd{flex:1;color:var(--muted);font-family:var(--mono);font-size:.78rem}
+.prow .pa{font-family:var(--mono);font-weight:600}
+.debthead{display:flex;align-items:center;gap:8px;padding:12px 0 6px}
+.debthead .t{flex:1;font-weight:700;font-size:.92rem}
+.del{color:var(--muted);font-size:1rem;padding:4px 8px}
+.del:active{color:var(--borc)}
+
+/* ---------- Alt menü + FAB ---------- */
+nav.tabs{
+  position:fixed;left:0;right:0;bottom:0;z-index:20;
+  background:rgba(15,21,18,.96);backdrop-filter:blur(8px);
+  border-top:1px solid var(--line);
+  display:flex;justify-content:space-around;
+  padding:8px 8px calc(8px + env(safe-area-inset-bottom));
+}
+nav.tabs button{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
+  font-size:.64rem;font-weight:700;color:var(--muted);padding:4px 0;letter-spacing:.03em;
+}
+nav.tabs button.on{color:var(--brass)}
+nav.tabs .ic{font-size:1.15rem;line-height:1}
+.fab{
+  position:fixed;right:18px;bottom:calc(86px + env(safe-area-inset-bottom));z-index:21;
+  width:56px;height:56px;border-radius:18px;background:var(--brass);color:#141109;
+  font-size:1.7rem;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.45);
+  display:flex;align-items:center;justify-content:center;
+}
+.fab:active{transform:scale(.95)}
+
+/* ---------- Ortalanmış modal ---------- */
+.overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:30;
+  display:none;align-items:center;justify-content:center;padding:20px;
+}
+.overlay.open{display:flex}
+.sheet{
+  background:var(--surface);border-radius:20px;width:100%;max-width:480px;
+  max-height:88dvh;overflow-y:auto;padding:8px 18px 20px;
+  border:2px solid var(--brass-dim);animation:up .18s ease;
+}
+@keyframes up{from{transform:translateY(10px) scale(.98);opacity:0}to{transform:none;opacity:1}}
+.grip{width:40px;height:4px;border-radius:2px;background:var(--line);margin:6px auto 12px}
+.sheet h3{font-family:var(--mono);font-size:.8rem;letter-spacing:.12em;color:var(--brass);text-transform:uppercase;margin-bottom:4px}
+.menuopt{
+  display:flex;align-items:center;gap:12px;width:100%;text-align:left;
+  padding:14px 10px;border-radius:12px;font-weight:700;font-size:.95rem;
+}
+.menuopt:active{background:var(--surface2)}
+.menuopt .mi{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--surface2);font-size:1rem}
+.menuopt small{display:block;font-weight:500;color:var(--muted);font-size:.74rem;margin-top:2px}
+.primary{
+  width:100%;background:var(--brass);color:#141109;font-weight:800;font-size:1rem;
+  border-radius:12px;padding:14px;margin-top:20px;
+}
+.primary:disabled{opacity:.4}
+.hint{
+  margin-top:14px;background:var(--surface2);border:1px dashed var(--brass-dim);
+  border-radius:10px;padding:10px 12px;font-size:.8rem;color:var(--muted);line-height:1.5;
+}
+.hint b{color:var(--brass);font-family:var(--mono);font-weight:600}
+.seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.seg button{
+  border:1px solid var(--line);border-radius:10px;padding:11px;font-weight:700;font-size:.85rem;background:var(--surface2)
+}
+.seg button.on.in{border-color:var(--alacak);color:var(--alacak)}
+.seg button.on.out{border-color:var(--borc);color:var(--borc)}
+.setrow{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 4px;border-bottom:1px dashed var(--line)}
+.setrow:last-child{border-bottom:none}
+.setrow .sl{font-weight:700;font-size:.9rem}
+.setrow .sl small{display:block;font-weight:500;color:var(--muted);font-size:.75rem;margin-top:2px}
+.setrow input,.setrow select{width:90px;text-align:center;font-family:var(--mono)}
+.ghost{
+  width:100%;border:1px solid var(--line);border-radius:12px;padding:12px;
+  font-weight:700;font-size:.88rem;color:var(--muted);margin-top:10px;background:var(--surface2)
+}
+
+/* ---------- Onay penceresi ---------- */
+.confirm-sheet{max-width:340px;text-align:center;padding:22px 20px}
+.confirm-sheet .cmsg{font-size:.95rem;font-weight:600;line-height:1.5;margin:6px 0 18px}
+.confirm-btns{display:flex;gap:10px}
+.confirm-btns button{flex:1;border-radius:12px;padding:12px;font-weight:800;font-size:.9rem}
+.confirm-btns .cCancel{background:var(--surface2);color:var(--muted);border:1px solid var(--line)}
+.confirm-btns .cOk{background:var(--borc);color:#1a0f0c}
+</style>
+</head>
+<body>
+
+<header class="app">
+  <div class="masthead">
+    <h1>BORÇ DEFTERİ</h1>
+    <span class="tarih" id="todayLabel"></span>
+  </div>
+  <div class="ruled"></div>
+</header>
+
+<main>
+  <!-- ÖZET -->
+  <section class="view active" id="view-ozet">
+    <div class="totals">
+      <div class="tcard"><div class="tl">Alacağım</div><div class="tv pos" id="topAlacak">₺0</div></div>
+      <div class="tcard"><div class="tl">Borcum</div><div class="tv neg" id="topBorc">₺0</div></div>
+    </div>
+    <div class="netbar"><span style="font-size:.8rem;color:var(--muted);font-weight:700">Net durum</span><b id="topNet">₺0</b></div>
+
+    <h2 class="sec">Geciken / Devreden</h2>
+    <div class="card" id="listGeciken"></div>
+
+    <h2 class="sec">Bu Ay Beklenen</h2>
+    <div class="card" id="listBuAy"></div>
+
+    <h2 class="sec">Son Hareketler</h2>
+    <div class="card" id="listSon"></div>
+  </section>
+
+  <!-- AYLIK -->
+  <section class="view" id="view-aylik">
+    <div class="monthnav">
+      <button id="mPrev">‹</button>
+      <div class="mt" id="mTitle"></div>
+      <button id="mNext">›</button>
+    </div>
+    <div class="card" style="margin-top:12px" id="listAy"></div>
+  </section>
+
+  <!-- KİŞİLER -->
+  <section class="view" id="view-kisiler">
+    <div id="listKisiler" style="margin-top:14px"></div>
+  </section>
+
+  <!-- KİŞİ DETAY -->
+  <section class="view" id="view-detay">
+    <div class="detailhead">
+      <button class="back" id="btnBack">‹</button>
+      <h3 id="dName"></h3>
+      <button class="del" id="btnDelPerson">🗑</button>
+    </div>
+    <div class="balance" id="dBalance"></div>
+    <div class="balnote" id="dBalNote"></div>
+    <div class="actionrow">
+      <button class="abtn al" data-quick="in">₺ Para Aldım</button>
+      <button class="abtn ver" data-quick="out">₺ Para Verdim</button>
+      <button class="abtn tk" data-quick="taksit">＋ Kart Taksit</button>
+    </div>
+    <h2 class="sec">Borçlar & Taksitler</h2>
+    <div class="card" id="dDebts"></div>
+    <h2 class="sec">Ödeme Geçmişi</h2>
+    <div class="card" id="dPays"></div>
+  </section>
+
+  <!-- AYARLAR -->
+  <section class="view" id="view-ayarlar">
+    <h2 class="sec">Kart Ayarları</h2>
+    <div class="card">
+      <div class="setrow">
+        <div class="sl">Kesim günü<small>Ekstrenin kesildiği gün</small></div>
+        <select id="setCutoff"></select>
+      </div>
+      <div class="setrow">
+        <div class="sl">Son ödeme günü<small>Taksitlerin vade günü</small></div>
+        <select id="setPayday"></select>
+      </div>
+    </div>
+    <h2 class="sec">Veri</h2>
+    <div class="card" style="padding:12px">
+      <button class="ghost" id="btnExport">Yedeği indir (JSON)</button>
+      <button class="ghost" id="btnImport">Yedekten geri yükle</button>
+      <input type="file" id="fileImport" accept=".json" style="display:none">
+      <button class="ghost" id="btnWipe" style="color:var(--borc)">Tüm verileri sil</button>
+    </div>
+    <div class="hint">Veriler şimdilik bu cihazda saklanır. <b>Google giriş + Supabase</b> bağlantısı için kodda <b>Store</b> katmanı hazır — ileride sadece o bölüm değişecek.</div>
+  </section>
+</main>
+
+<button class="fab" id="fab">＋</button>
+
+<nav class="tabs">
+  <button data-tab="ozet" class="on"><span class="ic">▤</span>Özet</button>
+  <button data-tab="aylik"><span class="ic">▦</span>Aylık</button>
+  <button data-tab="kisiler"><span class="ic">☰</span>Kişiler</button>
+  <button data-tab="ayarlar"><span class="ic">⚙</span>Ayarlar</button>
+</nav>
+
+<!-- YENİ İŞLEM MENÜSÜ -->
+<div class="overlay" id="ovMenu">
+  <div class="sheet">
+    <div class="grip"></div>
+    <h3>Yeni Kayıt</h3>
+    <button class="menuopt" data-new="taksit"><span class="mi" style="color:var(--brass)">💳</span><span>Kart ile Taksitli Alışveriş<small>Kartımla başkası adına yaptım</small></span></button>
+    <button class="menuopt" data-new="cash_out"><span class="mi" style="color:var(--borc)">↗</span><span>Nakit Verdim<small>Elden borç para verdim</small></span></button>
+    <button class="menuopt" data-new="cash_in"><span class="mi" style="color:var(--alacak)">↙</span><span>Nakit Aldım<small>Elden borç para aldım</small></span></button>
+    <button class="menuopt" data-new="pay"><span class="mi" style="color:var(--brass)">₺</span><span>Ödeme / Tahsilat<small>Borç ödendi ya da geri ödedim</small></span></button>
+  </div>
+</div>
+
+<!-- BORÇ FORMU (nakit + taksit) -->
+<div class="overlay" id="ovDebt">
+  <div class="sheet">
+    <div class="grip"></div>
+    <h3 id="fDebtTitle">Kayıt</h3>
+    <label>Kişi</label>
+    <select id="fDebtPerson"></select>
+    <div id="fNewPersonWrap" style="display:none"><label>Yeni kişi adı</label><input id="fNewPerson" placeholder="Örn. Ahmet Yılmaz"></div>
+    <label>Açıklama</label>
+    <input id="fDebtDesc" placeholder="Örn. Telefon alışverişi">
+    <label>Toplam tutar (₺)</label>
+    <input id="fDebtAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0">
+    <div id="fTaksitWrap">
+      <label>Taksit sayısı</label>
+      <select id="fDebtCount"></select>
+      <label>Alışveriş tarihi</label>
+      <input id="fDebtDate" type="date">
+      <div class="hint" id="fPreview"></div>
+    </div>
+    <div id="fCashDateWrap" style="display:none">
+      <label>Tarih</label>
+      <input id="fCashDate" type="date">
+    </div>
+    <button class="primary" id="fDebtSave">Kaydet</button>
+  </div>
+</div>
+
+<!-- ÖDEME FORMU -->
+<div class="overlay" id="ovPay">
+  <div class="sheet">
+    <div class="grip"></div>
+    <h3>Ödeme / Tahsilat</h3>
+    <label>Yön</label>
+    <div class="seg">
+      <button id="segIn" class="in on">↙ Para Aldım</button>
+      <button id="segOut" class="out">↗ Para Verdim</button>
+    </div>
+    <label>Kişi</label>
+    <select id="fPayPerson"></select>
+    <label>Tutar (₺)</label>
+    <input id="fPayAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0">
+    <label>Tarih</label>
+    <input id="fPayDate" type="date">
+    <label>Not (isteğe bağlı)</label>
+    <input id="fPayNote" placeholder="Örn. Ağustos taksiti">
+    <div class="hint">Ödeme, kişinin <b>en eski açık borcundan</b> başlayarak düşülür. Eksik kalan tutar sonraki aya devreder.</div>
+    <button class="primary" id="fPaySave">Kaydet</button>
+  </div>
+</div>
+
+<!-- ONAY PENCERESİ -->
+<div class="overlay" id="ovConfirm">
+  <div class="sheet confirm-sheet">
+    <div class="cmsg" id="cMsg"></div>
+    <div class="confirm-btns">
+      <button class="cCancel" id="cCancel">Vazgeç</button>
+      <button class="cOk" id="cOk">Sil</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =====================================================
+   VERİ KATMANI — ileride Supabase'e geçiş için tek nokta
+   Google giriş + Supabase eklerken sadece bu Store
+   nesnesinin load/save fonksiyonları değiştirilecek.
+===================================================== */
+const Store = {
+  key: 'borcdefteri_v1',
+  async load(){ try{ return JSON.parse(localStorage.getItem(this.key)) }catch(e){ return null } },
+  async save(s){ localStorage.setItem(this.key, JSON.stringify(s)) }
+};
+
+let state = {
+  settings: { cutoffDay: 23, payDay: 1 },
+  people: [],   // {id, name}
+  debts: [],    // {id, personId, kind:'cash_out'|'cash_in'|'installment', amount, date, desc, count, firstDue}
+  payments: []  // {id, personId, amount, date, dir:'in'|'out', note}
+};
+
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const TL = n => '₺' + (Math.round(n*100)/100).toLocaleString('tr-TR',{minimumFractionDigits: (n%1?2:0), maximumFractionDigits:2});
+const AYLAR = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+const iso = d => d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const parseISO = s => { const [y,m,d]=s.split('-').map(Number); return new Date(y,m-1,d) };
+const fmtDate = s => { const d=parseISO(s); return d.getDate()+' '+AYLAR[d.getMonth()]+' '+d.getFullYear() };
+const fmtShort = s => { const d=parseISO(s); return d.getDate()+' '+AYLAR[d.getMonth()].slice(0,3) };
+const todayISO = () => iso(new Date());
+
+/* ---- Kart taksit tarihi mantığı ----
+   Kesim gününden SONRA yapılan alışveriş bir sonraki ekstreye girer.
+   İlk taksit vadesi = ekstre ayının bir sonraki ayındaki ödeme günü.
+   Örn: kesim 23, ödeme günü 1 → 24 Temmuz alışverişi → Ağustos ekstresi → ilk taksit 1 Eylül. */
+function firstDueDate(purchaseISO, cutoffDay, payDay){
+  const d = parseISO(purchaseISO);
+  let y = d.getFullYear(), m = d.getMonth();
+  if (d.getDate() > cutoffDay) m += 1;   // sonraki ekstre
+  m += 1;                                 // ekstreden bir ay sonra ödenir
+  const dim = new Date(y, m+1, 0).getDate();
+  return iso(new Date(y, m, Math.min(payDay, dim)));
+}
+function addMonths(isoStr, k){
+  const d = parseISO(isoStr);
+  const t = new Date(d.getFullYear(), d.getMonth()+k, 1);
+  const dim = new Date(t.getFullYear(), t.getMonth()+1, 0).getDate();
+  return iso(new Date(t.getFullYear(), t.getMonth(), Math.min(d.getDate(), dim)));
+}
+
+/* ---- Taksit planı ---- */
+function schedule(debt){
+  if (debt.kind !== 'installment')
+    return [{ due: debt.date, amount: debt.amount, idx: 0 }];
+  const per = Math.floor(debt.amount / debt.count * 100) / 100;
+  const items = [];
+  for (let k=0; k<debt.count; k++){
+    const amount = (k === debt.count-1) ? Math.round((debt.amount - per*(debt.count-1))*100)/100 : per;
+    items.push({ due: addMonths(debt.firstDue, k), amount, idx: k });
+  }
+  return items;
+}
+
+/* ---- FIFO ödeme dağıtımı ----
+   Kişinin ilgili yöndeki tüm açık kalemleri vade sırasına dizilir,
+   ödemeler tarih sırasıyla en eskiden düşülür. Kısmi kalan devreder. */
+function personItems(personId, side){ // side 'recv' (bana borçlu) | 'pay' (ben borçluyum)
+  const kinds = side === 'recv' ? ['cash_out','installment'] : ['cash_in'];
+  const items = [];
+  state.debts.filter(d => d.personId===personId && kinds.includes(d.kind)).forEach(d => {
+    schedule(d).forEach(it => items.push({ debt: d, due: it.due, amount: it.amount, idx: it.idx, paid: 0 }));
+  });
+  items.sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
+  const dir = side === 'recv' ? 'in' : 'out';
+  const pays = state.payments.filter(p => p.personId===personId && p.dir===dir)
+                             .sort((a,b) => a.date < b.date ? -1 : 1);
+  let credit = 0;
+  pays.forEach(p => {
+    let rest = p.amount;
+    for (const it of items){
+      if (rest <= 0) break;
+      const need = it.amount - it.paid;
+      if (need <= 0) continue;
+      const use = Math.min(need, rest);
+      it.paid = Math.round((it.paid + use)*100)/100;
+      rest = Math.round((rest - use)*100)/100;
+    }
+    credit += rest; // tüm borçlar kapandıysa fazla ödeme
+  });
+  return { items, credit: Math.round(credit*100)/100 };
+}
+function itemStatus(it, ref){
+  const rem = Math.round((it.amount - it.paid)*100)/100;
+  if (rem <= 0) return 'odendi';
+  if (it.due < ref) return it.paid > 0 ? 'gecikti' : 'gecikti';
+  return it.paid > 0 ? 'kismi' : 'bekliyor';
+}
+const CHIP = { odendi:'Ödendi', kismi:'Kısmi', gecikti:'Gecikti', bekliyor:'Bekliyor' };
+
+function personBalance(personId){
+  const r = personItems(personId,'recv'), p = personItems(personId,'pay');
+  const alacak = r.items.reduce((s,i)=>s+i.amount-i.paid,0) - r.credit;
+  const borc   = p.items.reduce((s,i)=>s+i.amount-i.paid,0) - p.credit;
+  return { alacak: Math.max(0,Math.round(alacak*100)/100), borc: Math.max(0,Math.round(borc*100)/100),
+           creditR: r.credit, creditP: p.credit };
+}
+const personName = id => (state.people.find(p=>p.id===id)||{name:'?'}).name;
+
+/* =================== GÖRÜNÜMLER =================== */
+let currentTab = 'ozet', currentPerson = null;
+let monthCursor = (()=>{ const d=new Date(); return {y:d.getFullYear(), m:d.getMonth()} })();
+
+function show(tab){
+  currentTab = tab;
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('view-'+tab).classList.add('active');
+  document.querySelectorAll('nav.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab===tab));
+  render();
+  window.scrollTo(0,0);
+}
+
+function render(){
+  document.getElementById('todayLabel').textContent = fmtDate(todayISO());
+  if (currentTab==='ozet') renderOzet();
+  if (currentTab==='aylik') renderAylik();
+  if (currentTab==='kisiler') renderKisiler();
+  if (currentTab==='detay') renderDetay();
+}
+
+function rowHTML({name, desc, amount, cls, chip}){
+  return `<div class="row">
+    <div class="who"><div class="n">${name}</div><div class="d">${desc}</div></div>
+    ${chip?`<span class="chip ${chip}">${CHIP[chip]}</span>`:''}
+    <div class="amt ${cls||''}">${amount}</div>
+  </div>`;
+}
+
+function allOpenItems(){
+  const out = [];
+  state.people.forEach(p => {
+    ['recv','pay'].forEach(side => {
+      personItems(p.id, side).items.forEach(it => {
+        const rem = Math.round((it.amount-it.paid)*100)/100;
+        if (rem > 0) out.push({ person:p, side, it, rem });
+      });
+    });
+  });
+  return out;
+}
+
+function renderOzet(){
+  const ref = todayISO();
+  let ta=0, tb=0;
+  state.people.forEach(p => { const b=personBalance(p.id); ta+=b.alacak; tb+=b.borc; });
+  document.getElementById('topAlacak').textContent = TL(ta);
+  document.getElementById('topBorc').textContent = TL(tb);
+  const net = ta-tb;
+  const el = document.getElementById('topNet');
+  el.textContent = (net>=0?'+':'−') + TL(Math.abs(net)).slice(0);
+  el.style.color = net>=0 ? 'var(--alacak)' : 'var(--borc)';
+
+  const open = allOpenItems();
+  const ym = ref.slice(0,7);
+  const late = open.filter(o => o.it.due < ref && o.it.due.slice(0,7) < ym || (o.it.due < ref));
+  const thisMonth = open.filter(o => o.it.due.slice(0,7) === ym && o.it.due >= ref || (o.it.due.slice(0,7)===ym && o.it.due < ref));
+  // sadeleştir: geciken = vadesi geçmiş; bu ay = bu ay vadeli ve geçmemiş
+  const lateL = open.filter(o => o.it.due < ref).sort((a,b)=>a.it.due<b.it.due?-1:1);
+  const monthL = open.filter(o => o.it.due >= ref && o.it.due.slice(0,7)===ym).sort((a,b)=>a.it.due<b.it.due?-1:1);
+
+  const mkRow = o => rowHTML({
+    name: o.person.name,
+    desc: (o.it.debt.kind==='installment' ? `${o.it.idx+1}/${o.it.debt.count}. taksit · ` : '') + fmtShort(o.it.due) + (o.it.paid>0?` · ${TL(o.it.paid)} ödendi`:''),
+    amount: (o.side==='recv'?'+':'−') + TL(o.rem),
+    cls: o.side==='recv'?'pos':'neg',
+    chip: itemStatus(o.it, ref)
+  });
+  document.getElementById('listGeciken').innerHTML = lateL.length ? lateL.map(mkRow).join('') : '<div class="empty">Geciken ödeme yok 👍</div>';
+  document.getElementById('listBuAy').innerHTML = monthL.length ? monthL.map(mkRow).join('') : '<div class="empty">Bu ay beklenen ödeme yok</div>';
+
+  const moves = [
+    ...state.payments.map(p => ({date:p.date, html: rowHTML({
+      name: personName(p.personId),
+      desc: (p.dir==='in'?'Tahsilat':'Ödeme') + ' · ' + fmtShort(p.date) + (p.note?` · ${p.note}`:''),
+      amount: (p.dir==='in'?'+':'−')+TL(p.amount), cls: p.dir==='in'?'pos':'neg'})})),
+    ...state.debts.map(d => ({date:d.date, html: rowHTML({
+      name: personName(d.personId),
+      desc: (d.kind==='installment'?`${d.count} taksit · `:(d.kind==='cash_out'?'Nakit verdim · ':'Nakit aldım · ')) + fmtShort(d.date) + (d.desc?` · ${d.desc}`:''),
+      amount: TL(d.amount), cls:'mut'})}))
+  ].sort((a,b)=>a.date<b.date?1:-1).slice(0,8);
+  document.getElementById('listSon').innerHTML = moves.length ? moves.map(m=>m.html).join('') : '<div class="empty">Henüz kayıt yok. + ile başlayın.</div>';
+}
+
+function renderAylik(){
+  document.getElementById('mTitle').textContent = AYLAR[monthCursor.m]+' '+monthCursor.y;
+  const ym = monthCursor.y+'-'+String(monthCursor.m+1).padStart(2,'0');
+  const ref = todayISO();
+  const rows = [];
+  state.people.forEach(p => {
+    ['recv','pay'].forEach(side => {
+      personItems(p.id, side).items.forEach(it => {
+        if (it.due.slice(0,7) !== ym) return;
+        const rem = Math.round((it.amount-it.paid)*100)/100;
+        rows.push(rowHTML({
+          name: p.name,
+          desc: (it.debt.kind==='installment' ? `${it.idx+1}/${it.debt.count}. taksit · ` : (it.debt.kind==='cash_in'?'Nakit borç · ':'Nakit alacak · ')) + fmtShort(it.due) + (it.debt.desc?` · ${it.debt.desc}`:''),
+          amount: (side==='recv'?'+':'−') + TL(it.amount),
+          cls: side==='recv'?'pos':'neg',
+          chip: itemStatus(it, ref)
+        }));
+      });
+    });
+  });
+  document.getElementById('listAy').innerHTML = rows.length ? rows.join('') : '<div class="empty">Bu ayda vadeli kayıt yok</div>';
+}
+
+function renderKisiler(){
+  const wrap = document.getElementById('listKisiler');
+  if (!state.people.length){ wrap.innerHTML = '<div class="empty">Henüz kişi yok.<br>+ ile ilk kaydı ekleyin.</div>'; return }
+  wrap.innerHTML = state.people.map(p => {
+    const b = personBalance(p.id);
+    const net = b.alacak - b.borc;
+    return `<div class="person" data-person="${p.id}">
+      <div class="avatar">${p.name.trim()[0].toUpperCase()}</div>
+      <div class="who" style="flex:1">
+        <div class="n" style="font-weight:800">${p.name}</div>
+        <div class="d" style="font-size:.76rem;color:var(--muted)">${b.alacak?`Alacak ${TL(b.alacak)}`:''}${b.alacak&&b.borc?' · ':''}${b.borc?`Borç ${TL(b.borc)}`:''}${!b.alacak&&!b.borc?'Hesap kapalı':''}</div>
+      </div>
+      <div class="amt ${net>0?'pos':net<0?'neg':'mut'}">${net>0?'+':net<0?'−':''}${TL(Math.abs(net))}</div>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('[data-person]').forEach(el => el.onclick = () => { currentPerson = el.dataset.person; show('detay') });
+}
+
+function renderDetay(){
+  const p = state.people.find(x=>x.id===currentPerson);
+  if (!p){ show('kisiler'); return }
+  document.getElementById('dName').textContent = p.name;
+  const b = personBalance(p.id);
+  const net = b.alacak - b.borc;
+  const bal = document.getElementById('dBalance');
+  bal.textContent = (net>0?'+':net<0?'−':'') + TL(Math.abs(net));
+  bal.style.color = net>0?'var(--alacak)':net<0?'var(--borc)':'var(--muted)';
+  document.getElementById('dBalNote').textContent =
+    net>0 ? 'Size borçlu' : net<0 ? 'Siz borçlusunuz' : 'Hesap kapalı' ;
+
+  const ref = todayISO();
+  const debts = state.debts.filter(d=>d.personId===p.id).sort((a,b)=>a.date<b.date?1:-1);
+  const rMap = {}, pMap = {};
+  personItems(p.id,'recv').items.forEach(it => rMap[it.debt.id+'#'+it.idx] = it);
+  personItems(p.id,'pay').items.forEach(it => pMap[it.debt.id+'#'+it.idx] = it);
+
+  document.getElementById('dDebts').innerHTML = debts.length ? debts.map(d => {
+    const map = d.kind==='cash_in' ? pMap : rMap;
+    const items = schedule(d).map(s => map[d.id+'#'+s.idx]).filter(Boolean);
+    const kindTxt = d.kind==='installment' ? `💳 ${d.count} Taksit` : d.kind==='cash_out' ? '↗ Nakit Verdim' : '↙ Nakit Aldım';
+    const plan = items.map(it => {
+      const st = itemStatus(it, ref);
+      const tick = st==='odendi' ? '<span class="tick full">✓</span>'
+                 : st==='kismi'  ? '<span class="tick half">◐</span>'
+                 : st==='gecikti'? '<span class="tick late">!</span>'
+                 : '<span class="tick"></span>';
+      const rem = Math.round((it.amount-it.paid)*100)/100;
+      return `<div class="prow">${tick}
+        <span class="pd">${d.kind==='installment'?(it.idx+1)+'/'+d.count+' · ':''}${fmtShort(it.due)}</span>
+        ${it.paid>0&&rem>0?`<span style="font-size:.72rem;color:var(--muted)">${TL(it.paid)} /</span>`:''}
+        <span class="pa">${TL(it.amount)}</span></div>`;
+    }).join('');
+    return `<div class="debthead">
+        <div class="t">${kindTxt}${d.desc?` · <span style="font-weight:500;color:var(--muted)">${d.desc}</span>`:''}</div>
+        <span class="amt mut" style="font-size:.85rem">${TL(d.amount)}</span>
+        <button class="del" data-deldebt="${d.id}">🗑</button>
+      </div><div class="plan">${plan}</div>`;
+  }).join('') : '<div class="empty">Kayıtlı borç yok</div>';
+
+  const pays = state.payments.filter(x=>x.personId===p.id).sort((a,b)=>a.date<b.date?1:-1);
+  document.getElementById('dPays').innerHTML = pays.length ? pays.map(x => `
+    <div class="row">
+      <div class="who"><div class="n" style="font-weight:600;font-size:.86rem">${x.dir==='in'?'Tahsilat':'Ödeme'}</div>
+      <div class="d">${fmtDate(x.date)}${x.note?` · ${x.note}`:''}</div></div>
+      <div class="amt ${x.dir==='in'?'pos':'neg'}">${x.dir==='in'?'+':'−'}${TL(x.amount)}</div>
+      <button class="del" data-delpay="${x.id}">🗑</button>
+    </div>`).join('') : '<div class="empty">Ödeme yok</div>';
+
+  document.querySelectorAll('[data-deldebt]').forEach(b => b.onclick = async () => {
+    if (!await askConfirm('Bu borç kaydı ve taksit planı silinsin mi?')) return;
+    state.debts = state.debts.filter(d=>d.id!==b.dataset.deldebt);
+    await Store.save(state); render();
+  });
+  document.querySelectorAll('[data-delpay]').forEach(b => b.onclick = async () => {
+    if (!await askConfirm('Bu ödeme kaydı silinsin mi?')) return;
+    state.payments = state.payments.filter(x=>x.id!==b.dataset.delpay);
+    await Store.save(state); render();
+  });
+}
+
+/* =================== FORMLAR =================== */
+const ov = id => document.getElementById(id);
+function openSheet(id){ ov(id).classList.add('open') }
+function closeSheets(){ document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open')) }
+document.querySelectorAll('.overlay').forEach(o => o.addEventListener('click', e => {
+  if (e.target!==o) return;
+  if (o.id==='ovConfirm'){ document.getElementById('cCancel').click(); return }
+  closeSheets();
+}));
+
+/* ---- Özel onay penceresi (native confirm() yerine) ---- */
+function askConfirm(msg){
+  return new Promise(resolve => {
+    document.getElementById('cMsg').textContent = msg;
+    const okBtn = document.getElementById('cOk'), cancelBtn = document.getElementById('cCancel');
+    const cleanup = (result) => { ov('ovConfirm').classList.remove('open'); okBtn.onclick=null; cancelBtn.onclick=null; resolve(result) };
+    okBtn.onclick = () => cleanup(true);
+    cancelBtn.onclick = () => cleanup(false);
+    ov('ovConfirm').classList.add('open');
+  });
+}
+
+function fillPersonSelect(sel, preselect){
+  sel.innerHTML = state.people.map(p=>`<option value="${p.id}">${p.name}</option>`).join('') +
+                  '<option value="__new">＋ Yeni kişi ekle…</option>';
+  if (preselect) sel.value = preselect;
+  else if (state.people.length===0) sel.value='__new';
+  toggleNewPerson(sel);
+}
+function toggleNewPerson(sel){
+  const w = document.getElementById('fNewPersonWrap');
+  if (sel.id==='fDebtPerson') w.style.display = sel.value==='__new' ? 'block' : 'none';
+}
+
+let debtKind = 'taksit';
+function openDebtForm(kind, personId){
+  debtKind = kind;
+  document.getElementById('fDebtTitle').textContent =
+    kind==='taksit' ? 'Kart ile Taksitli Alışveriş' : kind==='cash_out' ? 'Nakit Verdim' : 'Nakit Aldım';
+  document.getElementById('fTaksitWrap').style.display = kind==='taksit' ? 'block' : 'none';
+  document.getElementById('fCashDateWrap').style.display = kind==='taksit' ? 'none' : 'block';
+  fillPersonSelect(document.getElementById('fDebtPerson'), personId);
+  document.getElementById('fDebtDesc').value = '';
+  document.getElementById('fDebtAmount').value = '';
+  document.getElementById('fNewPerson').value = '';
+  document.getElementById('fDebtDate').value = todayISO();
+  document.getElementById('fCashDate').value = todayISO();
+  updatePreview();
+  openSheet('ovDebt');
+}
+function updatePreview(){
+  if (debtKind!=='taksit') return;
+  const dateV = document.getElementById('fDebtDate').value || todayISO();
+  const cnt = Number(document.getElementById('fDebtCount').value);
+  const amt = Number(document.getElementById('fDebtAmount').value) || 0;
+  const fd = firstDueDate(dateV, state.settings.cutoffDay, state.settings.payDay);
+  const per = amt ? TL(Math.floor(amt/cnt*100)/100) : '—';
+  const cut = parseISO(dateV).getDate() > state.settings.cutoffDay ? 'sonraki ekstreye girer' : 'bu ekstreye girer';
+  document.getElementById('fPreview').innerHTML =
+    `Kesim günü <b>${state.settings.cutoffDay}</b> → bu alışveriş ${cut}.<br>
+     İlk taksit: <b>${fmtDate(fd)}</b> · Aylık: <b>${per}</b><br>
+     Son taksit: <b>${fmtDate(addMonths(fd,cnt-1))}</b>`;
+}
+['fDebtDate','fDebtCount','fDebtAmount'].forEach(id =>
+  document.getElementById(id).addEventListener('input', updatePreview));
+document.getElementById('fDebtPerson').addEventListener('change', e => toggleNewPerson(e.target));
+
+async function resolvePerson(sel, newInput){
+  if (sel.value !== '__new') return sel.value;
+  const name = newInput.value.trim();
+  if (!name){ alert('Kişi adı girin'); return null }
+  const p = { id: uid(), name };
+  state.people.push(p);
+  return p.id;
+}
+
+document.getElementById('fDebtSave').onclick = async () => {
+  const pid = await resolvePerson(document.getElementById('fDebtPerson'), document.getElementById('fNewPerson'));
+  if (!pid) return;
+  const amount = Number(document.getElementById('fDebtAmount').value);
+  if (!amount || amount<=0){ alert('Geçerli bir tutar girin'); return }
+  const desc = document.getElementById('fDebtDesc').value.trim();
+  if (debtKind==='taksit'){
+    const date = document.getElementById('fDebtDate').value || todayISO();
+    const count = Number(document.getElementById('fDebtCount').value);
+    state.debts.push({ id:uid(), personId:pid, kind:'installment', amount, date, desc, count,
+      firstDue: firstDueDate(date, state.settings.cutoffDay, state.settings.payDay) });
+  } else {
+    const date = document.getElementById('fCashDate').value || todayISO();
+    state.debts.push({ id:uid(), personId:pid, kind:debtKind, amount, date, desc });
+  }
+  await Store.save(state); closeSheets(); render();
+};
+
+let payDir = 'in';
+function openPayForm(dir, personId){
+  payDir = dir || 'in';
+  setSeg();
+  fillPersonSelect(document.getElementById('fPayPerson'), personId);
+  document.getElementById('fPayAmount').value='';
+  document.getElementById('fPayNote').value='';
+  document.getElementById('fPayDate').value = todayISO();
+  openSheet('ovPay');
+}
+function setSeg(){
+  document.getElementById('segIn').classList.toggle('on', payDir==='in');
+  document.getElementById('segOut').classList.toggle('on', payDir==='out');
+}
+document.getElementById('segIn').onclick = () => { payDir='in'; setSeg() };
+document.getElementById('segOut').onclick = () => { payDir='out'; setSeg() };
+
+document.getElementById('fPaySave').onclick = async () => {
+  const sel = document.getElementById('fPayPerson');
+  let pid = sel.value;
+  if (pid==='__new'){ alert('Önce kişiyi borç kaydıyla ekleyin'); return }
+  const amount = Number(document.getElementById('fPayAmount').value);
+  if (!amount || amount<=0){ alert('Geçerli bir tutar girin'); return }
+  state.payments.push({ id:uid(), personId:pid, amount, dir:payDir,
+    date: document.getElementById('fPayDate').value || todayISO(),
+    note: document.getElementById('fPayNote').value.trim() });
+  await Store.save(state); closeSheets(); render();
+};
+
+/* Menü */
+document.getElementById('fab').onclick = () => openSheet('ovMenu');
+document.querySelectorAll('[data-new]').forEach(b => b.onclick = () => {
+  closeSheets();
+  const k = b.dataset.new;
+  if (k==='pay') openPayForm('in', currentTab==='detay'?currentPerson:undefined);
+  else openDebtForm(k, currentTab==='detay'?currentPerson:undefined);
+});
+document.querySelectorAll('[data-quick]').forEach(b => b.onclick = () => {
+  const k = b.dataset.quick;
+  if (k==='taksit') openDebtForm('taksit', currentPerson);
+  else openPayForm(k, currentPerson);
+});
+
+/* Sekmeler */
+document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => show(b.dataset.tab));
+document.getElementById('btnBack').onclick = () => show('kisiler');
+document.getElementById('mPrev').onclick = () => { monthCursor.m--; if(monthCursor.m<0){monthCursor.m=11;monthCursor.y--} render() };
+document.getElementById('mNext').onclick = () => { monthCursor.m++; if(monthCursor.m>11){monthCursor.m=0;monthCursor.y++} render() };
+
+document.getElementById('btnDelPerson').onclick = async () => {
+  if (!await askConfirm('Bu kişi, tüm borçları ve ödemeleriyle birlikte silinsin mi?')) return;
+  state.debts = state.debts.filter(d=>d.personId!==currentPerson);
+  state.payments = state.payments.filter(p=>p.personId!==currentPerson);
+  state.people = state.people.filter(p=>p.id!==currentPerson);
+  await Store.save(state); show('kisiler');
+};
+
+/* Ayarlar */
+function fillSettings(){
+  const c = document.getElementById('setCutoff'), p = document.getElementById('setPayday');
+  c.innerHTML = ''; p.innerHTML = '';
+  for (let i=1;i<=28;i++){
+    c.innerHTML += `<option value="${i}">${i}</option>`;
+    p.innerHTML += `<option value="${i}">${i}</option>`;
+  }
+  c.value = state.settings.cutoffDay;
+  p.value = state.settings.payDay;
+  c.onchange = async () => { state.settings.cutoffDay = Number(c.value); await Store.save(state); render() };
+  p.onchange = async () => { state.settings.payDay = Number(p.value); await Store.save(state); render() };
+}
+const cSel = document.getElementById('fDebtCount');
+for (const n of [2,3,4,5,6,7,8,9,10,11,12,18,24,36]) cSel.innerHTML += `<option value="${n}">${n} taksit</option>`;
+cSel.value = 12;
+
+document.getElementById('btnExport').onclick = () => {
+  const blob = new Blob([JSON.stringify(state,null,2)],{type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'borc-defteri-yedek-'+todayISO()+'.json';
+  a.click();
+};
+document.getElementById('btnImport').onclick = () => document.getElementById('fileImport').click();
+document.getElementById('fileImport').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    if (!data.settings || !Array.isArray(data.people)) throw 0;
+    state = data; await Store.save(state); fillSettings(); render();
+    alert('Yedek geri yüklendi ✓');
+  } catch { alert('Geçersiz yedek dosyası') }
+};
+document.getElementById('btnWipe').onclick = async () => {
+  if (!await askConfirm('TÜM veriler silinecek. Emin misiniz?')) return;
+  if (!await askConfirm('Son kez soruyorum: geri alınamaz!')) return;
+  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[] };
+  await Store.save(state); fillSettings(); render();
+};
+
+/* Başlat */
+(async () => {
+  const saved = await Store.load();
+  if (saved) state = { ...state, ...saved, settings: { cutoffDay:23, payDay:1, ...saved.settings } };
+  fillSettings();
+  render();
+})();
+</script>
+</body>
+</html>
