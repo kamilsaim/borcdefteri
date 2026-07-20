@@ -120,6 +120,10 @@ h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
   display:flex;align-items:center;justify-content:center;
   font-family:var(--mono);font-weight:700;color:var(--brass);flex-shrink:0;border:1px solid var(--line);
 }
+.monthdue{display:flex;gap:10px;margin-top:6px;flex-wrap:wrap}
+.mchip{font-size:.72rem;color:var(--muted);font-family:var(--mono)}
+.mchip b{font-weight:700;margin-right:3px}
+.mchip .pos{color:var(--alacak)} .mchip .neg{color:var(--borc)} .mchip .mut{color:var(--muted)}
 
 /* ---------- Kişi detay ---------- */
 .detailhead{display:flex;align-items:center;gap:10px;margin-top:6px}
@@ -764,17 +768,41 @@ function renderAylik(){
   document.getElementById('listAyTek').innerHTML = rowsTek.length ? rowsTek.join('') : '<div class="empty">Bu ayda tek çekim yok</div>';
 }
 
+function nextMonths(n){
+  const d = new Date();
+  const out = [];
+  for (let i=0;i<n;i++){
+    const y = d.getFullYear(), m = d.getMonth()+i;
+    const yy = y + Math.floor(m/12), mm = ((m%12)+12)%12;
+    out.push({ ym: yy+'-'+String(mm+1).padStart(2,'0'), label: AYLAR[mm].slice(0,3) });
+  }
+  return out;
+}
+function personMonthDue(personId, ym){
+  let recv=0, pay=0;
+  personItems(personId,'recv').items.forEach(it => { if (it.due.slice(0,7)===ym) recv += it.amount-it.paid });
+  personItems(personId,'pay').items.forEach(it => { if (it.due.slice(0,7)===ym) pay += it.amount-it.paid });
+  return Math.round((recv-pay)*100)/100;
+}
+
 function renderKisiler(){
   const wrap = document.getElementById('listKisiler');
   if (!state.people.length){ wrap.innerHTML = '<div class="empty">Henüz kişi yok.<br>+ ile ilk kaydı ekleyin.</div>'; return }
+  const months = nextMonths(3);
   wrap.innerHTML = state.people.map(p => {
     const b = personBalance(p.id);
     const net = b.alacak - b.borc;
+    const monthChips = months.map(mo => {
+      const due = personMonthDue(p.id, mo.ym);
+      const cls = due>0?'pos':due<0?'neg':'mut';
+      return `<span class="mchip"><b>${mo.label}</b> <span class="${cls}">${due===0?'—':(due>0?'+':'−')+TL(Math.abs(due))}</span></span>`;
+    }).join('');
     return `<div class="person" data-person="${p.id}">
       <div class="avatar">${p.name.trim()[0].toUpperCase()}</div>
       <div class="who" style="flex:1">
         <div class="n" style="font-weight:800">${p.name}</div>
         <div class="d" style="font-size:.76rem;color:var(--muted)">${b.alacak?`Alacak ${TL(b.alacak)}`:''}${b.alacak&&b.borc?' · ':''}${b.borc?`Borç ${TL(b.borc)}`:''}${!b.alacak&&!b.borc?'Hesap kapalı':''}</div>
+        <div class="monthdue">${monthChips}</div>
       </div>
       <div class="amt ${net>0?'pos':net<0?'neg':'mut'}">${net>0?'+':net<0?'−':''}${TL(Math.abs(net))}</div>
     </div>`;
