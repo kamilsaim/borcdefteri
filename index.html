@@ -246,8 +246,9 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 </head>
 <body>
 
-<div class="overlay open" id="authScreen" style="position:fixed;background:var(--bg)">
+<div class="overlay" id="authScreen" style="position:fixed;background:var(--bg)">
   <div class="sheet" style="text-align:center;padding:32px 24px">
+    <img src="logo2.png" alt="Borç Defteri logo" style="width:64px;height:64px;border-radius:16px;object-fit:cover;margin-bottom:14px">
     <h1 style="font-family:var(--mono);letter-spacing:.14em;color:var(--brass);font-size:1.1rem;margin-bottom:6px">BORÇ DEFTERİ</h1>
     <p style="color:var(--muted);font-size:.86rem;margin-bottom:22px">Verileriniz hesabınıza bağlı olarak saklanır.</p>
     <button class="primary" id="btnGoogleLogin" style="margin-top:0">Google ile Giriş Yap</button>
@@ -329,8 +330,18 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 
   <!-- AYARLAR -->
   <section class="view" id="view-ayarlar">
+    <h2 class="sec">Program Bilgisi</h2>
+    <div class="card" style="padding:16px;display:flex;align-items:center;gap:12px">
+      <img src="logo2.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
+      <div>
+        <div style="font-weight:700">Borç Defteri</div>
+        <div class="hint">Sürüm 1.5.0</div>
+      </div>
+    </div>
     <h2 class="sec">Hesap</h2>
     <div class="hint" id="accountEmail">—</div>
+    <div class="hint" id="syncStatus">● —</div>
+    <button class="ghost" id="btnLogout" style="color:var(--borc)">Çıkış yap</button>
     <h2 class="sec">Kart Ayarları</h2>
     <div class="card">
       <div class="setrow">
@@ -348,16 +359,6 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <button class="ghost" id="btnImport">Yedekten geri yükle</button>
       <input type="file" id="fileImport" accept=".json" style="display:none">
       <button class="ghost" id="btnWipe" style="color:var(--borc)">Tüm verileri sil</button>
-    </div>
-    <div class="hint" id="syncStatus">● —</div>
-    <button class="ghost" id="btnLogout" style="color:var(--borc)">Çıkış yap</button>
-    <h2 class="sec">Program Bilgisi</h2>
-    <div class="card" style="padding:16px;display:flex;align-items:center;gap:12px">
-      <img src="logo2.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
-      <div>
-        <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.5.0</div>
-      </div>
     </div>
   </section>
 </main>
