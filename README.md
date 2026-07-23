@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="logo2.png" alt="Borç Defteri logo" width="120" height="120">
+  <img src="logo.png" alt="Borç Defteri logo" width="120" height="120">
 
   # Borç Defteri
 
