@@ -1208,9 +1208,35 @@ const CLEAN_URL = location.origin + location.pathname;
     if (event === 'SIGNED_IN' && document.getElementById('authScreen').classList.contains('open')) bootApp();
     if (event === 'SIGNED_OUT') showAuthScreen();
   });
+  // APK (Capacitor): Google girişi sistem tarayıcısında açılır, com.kamilsaim.borcdefteri://auth-callback
+  // deep link'i ile token'lar geri döner (WebView içinde Google girişi engelli olduğu için).
+  if (window.Capacitor){
+    const { App, Browser } = Capacitor.Plugins;
+    App.addListener('appUrlOpen', async ({ url }) => {
+      if (!url || !url.includes('auth-callback')) return;
+      try { await Browser.close(); } catch(e) {}
+      const hash = url.split('#')[1];
+      if (!hash) return;
+      const p = new URLSearchParams(hash);
+      const access_token = p.get('access_token'), refresh_token = p.get('refresh_token');
+      if (access_token && refresh_token){
+        const { error } = await sb.auth.setSession({ access_token, refresh_token });
+        if (error) alert('Giriş tamamlanamadı: ' + error.message);
+      }
+    });
+  }
 })();
-document.getElementById('btnGoogleLogin').onclick = () => {
-  sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: CLEAN_URL } });
+document.getElementById('btnGoogleLogin').onclick = async () => {
+  if (window.Capacitor){
+    const redirectTo = 'com.kamilsaim.borcdefteri://auth-callback';
+    const { data, error } = await sb.auth.signInWithOAuth({
+      provider:'google', options:{ redirectTo, skipBrowserRedirect:true }
+    });
+    if (error) return alert('Giriş başlatılamadı: ' + error.message);
+    if (data?.url) await Capacitor.Plugins.Browser.open({ url:data.url, windowName:'_self' });
+  } else {
+    sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: CLEAN_URL } });
+  }
 };
 </script>
 </body>
