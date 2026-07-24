@@ -378,6 +378,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <div class="grip"></div>
     <h3>Yeni Kayıt</h3>
     <button class="menuopt" data-new="taksit"><span class="mi" style="color:var(--brass)">💳</span><span>Kart ile Taksitli Alışveriş<small>Kartımla başkası adına yaptım</small></span></button>
+    <button class="menuopt" data-new="taksit_borc"><span class="mi" style="color:var(--borc)">💳</span><span>Başkasının Kartıyla Taksit<small>Arkadaşımın kartıyla alışveriş yaptım</small></span></button>
     <button class="menuopt" data-new="cash_out"><span class="mi" style="color:var(--borc)">↗</span><span>Nakit Verdim<small>Elden borç para verdim</small></span></button>
     <button class="menuopt" data-new="cash_in"><span class="mi" style="color:var(--alacak)">↙</span><span>Nakit Aldım<small>Elden borç para aldım</small></span></button>
     <button class="menuopt" data-new="pay"><span class="mi" style="color:var(--brass)">₺</span><span>Ödeme / Tahsilat<small>Borç ödendi ya da geri ödedim</small></span></button>
@@ -488,7 +489,7 @@ const Store = {
       const remote = {
         settings: ay.data ? { cutoffDay: ay.data.cutoff_day, payDay: ay.data.pay_day } : { cutoffDay:23, payDay:1 },
         people: pe.data.map(r => ({ id:r.id, name:r.ad })),
-        debts: de.data.map(r => ({ id:r.id, personId:r.person_id, kind:r.kind, amount:Number(r.amount), date:r.date, desc:r.aciklama||'', count:r.count, firstDue:r.first_due })),
+        debts: de.data.map(r => ({ id:r.id, personId:r.person_id, kind:r.kind, amount:Number(r.amount), date:r.date, desc:r.aciklama||'', count:r.count, firstDue:r.first_due, owe:!!r.owe })),
         payments: pa.data.map(r => ({ id:r.id, personId:r.person_id, amount:Number(r.amount), date:r.date, dir:r.dir, note:r.note||'' })),
       };
       this._lastSynced = JSON.parse(JSON.stringify(remote));
@@ -516,7 +517,7 @@ const Store = {
     try {
       const prev = this._lastSynced || { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[] };
       await this._syncTable('borc_people', prev.people, s.people, r => ({ id:r.id, user_id:this._uid, ad:r.name }));
-      await this._syncTable('borc_debts', prev.debts, s.debts, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, kind:r.kind, amount:r.amount, date:r.date, aciklama:r.desc||null, count:r.count ?? null, first_due:r.firstDue ?? null }));
+      await this._syncTable('borc_debts', prev.debts, s.debts, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, kind:r.kind, amount:r.amount, date:r.date, aciklama:r.desc||null, count:r.count ?? null, first_due:r.firstDue ?? null, owe:!!r.owe }));
       await this._syncTable('borc_payments', prev.payments, s.payments, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, amount:r.amount, date:r.date, dir:r.dir, note:r.note||null }));
       if (JSON.stringify(prev.settings) !== JSON.stringify(s.settings)){
         const { error } = await sb.from('borc_ayarlar').upsert({ user_id:this._uid, cutoff_day:s.settings.cutoffDay, pay_day:s.settings.payDay, updated_at:new Date().toISOString() });
@@ -623,9 +624,12 @@ function schedule(debt){
    Kişinin ilgili yöndeki tüm açık kalemleri vade sırasına dizilir,
    ödemeler tarih sırasıyla en eskiden düşülür. Kısmi kalan devreder. */
 function personItems(personId, side){ // side 'recv' (bana borçlu) | 'pay' (ben borçluyum)
-  const kinds = side === 'recv' ? ['cash_out','installment'] : ['cash_in'];
   const items = [];
-  state.debts.filter(d => d.personId===personId && kinds.includes(d.kind)).forEach(d => {
+  state.debts.filter(d => {
+    if (d.personId !== personId) return false;
+    if (side === 'recv') return d.kind==='cash_out' || (d.kind==='installment' && !d.owe);
+    return d.kind==='cash_in' || (d.kind==='installment' && d.owe);
+  }).forEach(d => {
     schedule(d).forEach(it => items.push({ debt: d, due: it.due, amount: it.amount, idx: it.idx, paid: 0 }));
   });
   items.sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
@@ -851,9 +855,9 @@ function renderDetay(){
   personItems(p.id,'pay').items.forEach(it => pMap[it.debt.id+'#'+it.idx] = it);
 
   document.getElementById('dDebts').innerHTML = debts.length ? debts.map(d => {
-    const map = d.kind==='cash_in' ? pMap : rMap;
+    const map = (d.kind==='cash_in' || d.owe) ? pMap : rMap;
     const items = schedule(d).map(s => map[d.id+'#'+s.idx]).filter(Boolean);
-    const kindTxt = d.kind==='installment' ? `💳 ${d.count} Taksit` : d.kind==='cash_out' ? '↗ Nakit Verdim' : '↙ Nakit Aldım';
+    const kindTxt = d.kind==='installment' ? `💳 ${d.count} Taksit${d.owe?' · Başkasının kartı':''}` : d.kind==='cash_out' ? '↗ Nakit Verdim' : '↙ Nakit Aldım';
     const plan = items.map(it => {
       const st = itemStatus(it, ref);
       const tick = st==='odendi' ? '<span class="tick full">✓</span>'
@@ -875,11 +879,11 @@ function renderDetay(){
   }).join('') : '<div class="empty">Kayıtlı borç yok</div>';
 
   document.getElementById('dDebtsTek').innerHTML = debtsTek.length ? debtsTek.map(d => {
-    const map = d.kind==='cash_in' ? pMap : rMap;
+    const map = (d.kind==='cash_in' || d.owe) ? pMap : rMap;
     const it = map[d.id+'#0'];
     const st = it ? itemStatus(it, ref) : null;
     return `<div class="row">
-      <div class="who"><div class="n" style="font-weight:600;font-size:.86rem">💳 Tek Çekim${d.desc?` · ${d.desc}`:''}</div>
+      <div class="who"><div class="n" style="font-weight:600;font-size:.86rem">💳 Tek Çekim${d.owe?' · Başkasının kartı':''}${d.desc?` · ${d.desc}`:''}</div>
       <div class="d">${fmtDate(d.date)}</div></div>
       ${st?`<span class="chip ${st}">${CHIP[st]}</span>`:''}
       <div class="amt mut">${TL(d.amount)}</div>
@@ -901,7 +905,7 @@ function renderDetay(){
   document.querySelectorAll('[data-editdebt]').forEach(b => b.onclick = () => {
     const d = state.debts.find(x=>x.id===b.dataset.editdebt);
     if (!d) return;
-    openDebtForm(d.kind==='installment'?'taksit':d.kind, d.personId, d);
+    openDebtForm(d.kind==='installment'?(d.owe?'taksit_borc':'taksit'):d.kind, d.personId, d);
   });
   document.querySelectorAll('[data-deldebt]').forEach(b => b.onclick = async () => {
     if (!await askConfirm('Bu borç kaydı ve taksit planı silinsin mi?')) return;
@@ -958,12 +962,17 @@ function toggleNewPerson(sel){
 }
 
 let debtKind = 'taksit';
+let debtOwe = false;
 let editingDebtId = null;
 function openDebtForm(kind, personId, existing){
   editingDebtId = existing ? existing.id : null;
+  // 'taksit_borc' = başkasının kartıyla taksit (ben borçluyum); form mantığı taksitle aynı, sadece owe bayrağı farklı
+  debtOwe = kind==='taksit_borc';
+  const isTaksit = kind==='taksit' || kind==='taksit_borc';
+  if (isTaksit) kind = 'taksit';
   debtKind = kind;
   document.getElementById('fDebtTitle').textContent =
-    (existing?'Düzenle · ':'') + (kind==='taksit' ? 'Kart ile Taksitli Alışveriş' : kind==='cash_out' ? 'Nakit Verdim' : 'Nakit Aldım');
+    (existing?'Düzenle · ':'') + (debtOwe ? 'Başkasının Kartıyla Taksit' : kind==='taksit' ? 'Kart ile Taksitli Alışveriş' : kind==='cash_out' ? 'Nakit Verdim' : 'Nakit Aldım');
   document.getElementById('fTaksitWrap').style.display = kind==='taksit' ? 'block' : 'none';
   document.getElementById('fCashDateWrap').style.display = kind==='taksit' ? 'none' : 'block';
   fillPersonSelect(document.getElementById('fDebtPerson'), existing ? existing.personId : personId);
@@ -1013,7 +1022,7 @@ document.getElementById('fDebtSave').onclick = async () => {
   if (debtKind==='taksit'){
     const date = document.getElementById('fDebtDate').value || todayISO();
     const count = Number(document.getElementById('fDebtCount').value);
-    payload = { kind:'installment', amount, date, desc, count,
+    payload = { kind:'installment', amount, date, desc, count, owe: debtOwe,
       firstDue: firstDueDate(date, state.settings.cutoffDay, state.settings.payDay) };
   } else {
     const date = document.getElementById('fCashDate').value || todayISO();
