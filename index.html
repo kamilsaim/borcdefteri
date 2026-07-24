@@ -1184,9 +1184,11 @@ document.getElementById('btnLogout').onclick = async () => {
 document.getElementById('btnDeleteAccount').onclick = async () => {
   if (!await askConfirm('Hesabınız ve TÜM borç/alacak kayıtlarınız kalıcı olarak silinecek. Bu işlem GERİ ALINAMAZ. Devam edilsin mi?')) return;
   if (!await askConfirm('Son onay: hesabınızı gerçekten silmek istediğinize emin misiniz?')) return;
+  let result;
   try {
-    const { error } = await sb.functions.invoke('delete-account');
+    const { data, error } = await sb.functions.invoke('delete-account');
     if (error) throw error;
+    result = data;
   } catch (e) {
     alert('Hesap silinemedi: ' + (e?.message || e) + '\nLütfen daha sonra tekrar deneyin.');
     return;
@@ -1196,7 +1198,11 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
   await sb.auth.signOut();
   state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[] };
   showAuthScreen();
-  alert('Hesabınız silindi.');
+  // Ayni hesap baska uygulamalarla paylasiliyorsa (bd_/hediye_ vb.) giris kimligi korunur,
+  // sadece Borc Defteri verisi silinir; hicbiri yoksa hesap tumuyle silinir.
+  alert(result && result.account_deleted === false
+    ? 'Borç Defteri verileriniz silindi. Aynı hesabı diğer uygulamalarda kullandığınız için giriş hesabınız korundu.'
+    : 'Hesabınız ve tüm verileriniz silindi.');
 };
 
 async function bootApp(){
