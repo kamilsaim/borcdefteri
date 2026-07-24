@@ -342,6 +342,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <div class="hint" id="accountEmail">—</div>
     <div class="hint" id="syncStatus">● —</div>
     <button class="ghost" id="btnLogout" style="color:var(--borc)">Çıkış yap</button>
+    <button class="ghost" id="btnDeleteAccount" style="color:var(--borc)">Hesabımı sil</button>
+    <div class="hint">Bu işlem hesabınızı ve tüm borç/alacak kayıtlarınızı kalıcı olarak siler. <a href="gizlilik-politikasi.html" style="color:var(--muted)">Gizlilik politikası</a></div>
     <h2 class="sec">Kart Ayarları</h2>
     <div class="card">
       <div class="setrow">
@@ -1177,6 +1179,24 @@ document.getElementById('btnLogout').onclick = async () => {
   await sb.auth.signOut();
   state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[] };
   showAuthScreen();
+};
+
+document.getElementById('btnDeleteAccount').onclick = async () => {
+  if (!await askConfirm('Hesabınız ve TÜM borç/alacak kayıtlarınız kalıcı olarak silinecek. Bu işlem GERİ ALINAMAZ. Devam edilsin mi?')) return;
+  if (!await askConfirm('Son onay: hesabınızı gerçekten silmek istediğinize emin misiniz?')) return;
+  try {
+    const { error } = await sb.functions.invoke('delete-account');
+    if (error) throw error;
+  } catch (e) {
+    alert('Hesap silinemedi: ' + (e?.message || e) + '\nLütfen daha sonra tekrar deneyin.');
+    return;
+  }
+  Store._unsubscribeRealtime();
+  try { localStorage.removeItem(Store.key); } catch {}
+  await sb.auth.signOut();
+  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[] };
+  showAuthScreen();
+  alert('Hesabınız silindi.');
 };
 
 async function bootApp(){
