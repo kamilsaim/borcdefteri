@@ -195,10 +195,17 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 }
 .overlay.open{display:flex}
 .sheet{
+  position:relative;
   background:var(--surface);border-radius:20px;width:100%;max-width:480px;
   max-height:88dvh;overflow-y:auto;padding:8px 18px 20px;
   border:2px solid var(--brass-dim);animation:up .18s ease;
 }
+.sheet-close{
+  position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;color:var(--muted);
+  font-size:1.2rem;line-height:1;
+}
+.sheet-close:active{background:var(--surface2)}
 @keyframes up{from{transform:translateY(10px) scale(.98);opacity:0}to{transform:none;opacity:1}}
 .grip{width:40px;height:4px;border-radius:2px;background:var(--line);margin:6px auto 12px}
 .sheet h3{font-family:var(--mono);font-size:.8rem;letter-spacing:.12em;color:var(--brass);text-transform:uppercase;margin-bottom:4px}
@@ -345,16 +352,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <button class="ghost" id="btnDeleteAccount" style="color:var(--borc)">Hesabımı sil</button>
     <div class="hint">Bu işlem hesabınızı ve tüm borç/alacak kayıtlarınızı kalıcı olarak siler. <a href="gizlilik-politikasi.html" style="color:var(--muted)">Gizlilik politikası</a></div>
     <h2 class="sec">Kart Ayarları</h2>
-    <div class="card">
-      <div class="setrow">
-        <div class="sl">Kesim günü<small>Ekstrenin kesildiği gün</small></div>
-        <select id="setCutoff"></select>
-      </div>
-      <div class="setrow">
-        <div class="sl">Son ödeme günü<small>Taksitlerin vade günü</small></div>
-        <select id="setPayday"></select>
-      </div>
-    </div>
+    <div class="card" id="listCards"></div>
+    <button class="ghost" id="btnAddCard">＋ Kart Ekle</button>
     <h2 class="sec">Veri</h2>
     <div class="card" style="padding:12px">
       <button class="ghost" id="btnExport">Yedeği indir (JSON)</button>
@@ -377,6 +376,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 <!-- YENİ İŞLEM MENÜSÜ -->
 <div class="overlay" id="ovMenu">
   <div class="sheet">
+    <button class="sheet-close" data-close>×</button>
     <div class="grip"></div>
     <h3>Yeni Kayıt</h3>
     <button class="menuopt" data-new="taksit"><span class="mi" style="color:var(--brass)">💳</span><span>Kart ile Taksitli Alışveriş<small>Kartımla başkası adına yaptım</small></span></button>
@@ -390,6 +390,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 <!-- BORÇ FORMU (nakit + taksit) -->
 <div class="overlay" id="ovDebt">
   <div class="sheet">
+    <button class="sheet-close" data-close>×</button>
     <div class="grip"></div>
     <h3 id="fDebtTitle">Kayıt</h3>
     <label>Kişi</label>
@@ -400,6 +401,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <label>Toplam tutar (₺)</label>
     <input id="fDebtAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0">
     <div id="fTaksitWrap">
+      <label>Kart</label>
+      <select id="fDebtCard"></select>
       <label>Taksit sayısı</label>
       <select id="fDebtCount"></select>
       <label>Alışveriş tarihi</label>
@@ -417,6 +420,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 <!-- ÖDEME FORMU -->
 <div class="overlay" id="ovPay">
   <div class="sheet">
+    <button class="sheet-close" data-close>×</button>
     <div class="grip"></div>
     <h3>Ödeme / Tahsilat</h3>
     <label>Yön</label>
@@ -434,6 +438,22 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <input id="fPayNote" placeholder="Örn. Ağustos taksiti">
     <div class="hint">Ödeme, kişinin <b>en eski açık borcundan</b> başlayarak düşülür. Eksik kalan tutar sonraki aya devreder.</div>
     <button class="primary" id="fPaySave">Kaydet</button>
+  </div>
+</div>
+
+<!-- KART FORMU -->
+<div class="overlay" id="ovCard">
+  <div class="sheet">
+    <button class="sheet-close" data-close>×</button>
+    <div class="grip"></div>
+    <h3 id="fCardTitle">Kart Ekle</h3>
+    <label>Kart adı</label>
+    <input id="fCardName" placeholder="Örn. Bonus Kart">
+    <label>Kesim günü</label>
+    <select id="fCardCutoff"></select>
+    <label>Son ödeme günü</label>
+    <select id="fCardPayday"></select>
+    <button class="primary" id="fCardSave">Kaydet</button>
   </div>
 </div>
 
@@ -480,19 +500,21 @@ const Store = {
     if (!user) return null;
     this._uid = user.id;
     try {
-      const [ay, pe, de, pa] = await Promise.all([
+      const [ay, pe, de, pa, ca] = await Promise.all([
         sb.from('borc_ayarlar').select('*').eq('user_id', user.id).maybeSingle(),
         sb.from('borc_people').select('*').eq('user_id', user.id),
         sb.from('borc_debts').select('*').eq('user_id', user.id),
         sb.from('borc_payments').select('*').eq('user_id', user.id),
+        sb.from('borc_cards').select('*').eq('user_id', user.id),
       ]);
-      const err = ay.error || pe.error || de.error || pa.error;
+      const err = ay.error || pe.error || de.error || pa.error || ca.error;
       if (err) throw err;
       const remote = {
         settings: ay.data ? { cutoffDay: ay.data.cutoff_day, payDay: ay.data.pay_day } : { cutoffDay:23, payDay:1 },
         people: pe.data.map(r => ({ id:r.id, name:r.ad })),
-        debts: de.data.map(r => ({ id:r.id, personId:r.person_id, kind:r.kind, amount:Number(r.amount), date:r.date, desc:r.aciklama||'', count:r.count, firstDue:r.first_due, owe:!!r.owe })),
+        debts: de.data.map(r => ({ id:r.id, personId:r.person_id, kind:r.kind, amount:Number(r.amount), date:r.date, desc:r.aciklama||'', count:r.count, firstDue:r.first_due, owe:!!r.owe, cardId:r.card_id||null })),
         payments: pa.data.map(r => ({ id:r.id, personId:r.person_id, amount:Number(r.amount), date:r.date, dir:r.dir, note:r.note||'' })),
+        cards: ca.data.map(r => ({ id:r.id, name:r.ad, cutoffDay:r.cutoff_day, payDay:r.pay_day, isDefault:!!r.is_default })),
       };
       this._lastSynced = JSON.parse(JSON.stringify(remote));
       this._writeLocal(remote);
@@ -517,9 +539,10 @@ const Store = {
     this._pushing = true;
     this._setStatus('syncing');
     try {
-      const prev = this._lastSynced || { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[] };
+      const prev = this._lastSynced || { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
+      await this._syncTable('borc_cards', prev.cards, s.cards, r => ({ id:r.id, user_id:this._uid, ad:r.name, cutoff_day:r.cutoffDay, pay_day:r.payDay, is_default:!!r.isDefault }));
       await this._syncTable('borc_people', prev.people, s.people, r => ({ id:r.id, user_id:this._uid, ad:r.name }));
-      await this._syncTable('borc_debts', prev.debts, s.debts, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, kind:r.kind, amount:r.amount, date:r.date, aciklama:r.desc||null, count:r.count ?? null, first_due:r.firstDue ?? null, owe:!!r.owe }));
+      await this._syncTable('borc_debts', prev.debts, s.debts, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, kind:r.kind, amount:r.amount, date:r.date, aciklama:r.desc||null, count:r.count ?? null, first_due:r.firstDue ?? null, owe:!!r.owe, card_id:r.cardId||null }));
       await this._syncTable('borc_payments', prev.payments, s.payments, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, amount:r.amount, date:r.date, dir:r.dir, note:r.note||null }));
       if (JSON.stringify(prev.settings) !== JSON.stringify(s.settings)){
         const { error } = await sb.from('borc_ayarlar').upsert({ user_id:this._uid, cutoff_day:s.settings.cutoffDay, pay_day:s.settings.payDay, updated_at:new Date().toISOString() });
@@ -565,6 +588,7 @@ const Store = {
       .on('postgres_changes', { event:'*', schema:'public', table:'borc_debts', filter:`user_id=eq.${this._uid}` }, onChange)
       .on('postgres_changes', { event:'*', schema:'public', table:'borc_payments', filter:`user_id=eq.${this._uid}` }, onChange)
       .on('postgres_changes', { event:'*', schema:'public', table:'borc_ayarlar', filter:`user_id=eq.${this._uid}` }, onChange)
+      .on('postgres_changes', { event:'*', schema:'public', table:'borc_cards', filter:`user_id=eq.${this._uid}` }, onChange)
       .subscribe();
   },
 
@@ -577,8 +601,9 @@ window.addEventListener('online', () => { if (Store._pending) Store._push(Store.
 let state = {
   settings: { cutoffDay: 23, payDay: 1 },
   people: [],   // {id, name}
-  debts: [],    // {id, personId, kind:'cash_out'|'cash_in'|'installment', amount, date, desc, count, firstDue}
-  payments: []  // {id, personId, amount, date, dir:'in'|'out', note}
+  debts: [],    // {id, personId, kind:'cash_out'|'cash_in'|'installment', amount, date, desc, count, firstDue, cardId}
+  payments: [], // {id, personId, amount, date, dir:'in'|'out', note}
+  cards: []     // {id, name, cutoffDay, payDay, isDefault}
 };
 
 const uid = () => crypto.randomUUID();
@@ -669,6 +694,11 @@ function personBalance(personId){
            creditR: r.credit, creditP: p.credit };
 }
 const personName = id => (state.people.find(p=>p.id===id)||{name:'?'}).name;
+function migrateCards(){
+  if (state.cards && state.cards.length) return false;
+  state.cards = [{ id: uid(), name: 'Varsayılan Kart', cutoffDay: state.settings.cutoffDay, payDay: state.settings.payDay, isDefault: true }];
+  return true;
+}
 
 /* =================== GÖRÜNÜMLER =================== */
 let currentTab = 'ozet', currentPerson = null;
@@ -884,10 +914,14 @@ function renderDetay(){
     const map = (d.kind==='cash_in' || d.owe) ? pMap : rMap;
     const it = map[d.id+'#0'];
     const st = it ? itemStatus(it, ref) : null;
+    const tick = st==='odendi' ? '<span class="tick full">✓</span>'
+               : st==='kismi'  ? '<span class="tick half">◐</span>'
+               : st==='gecikti'? '<span class="tick late">!</span>'
+               : '<span class="tick"></span>';
     return `<div class="row">
+      ${tick}
       <div class="who"><div class="n" style="font-weight:600;font-size:.86rem">💳 Tek Çekim${d.owe?' · Başkasının kartı':''}${d.desc?` · ${d.desc}`:''}</div>
       <div class="d">${fmtDate(d.date)}</div></div>
-      ${st?`<span class="chip ${st}">${CHIP[st]}</span>`:''}
       <div class="amt mut">${TL(d.amount)}</div>
       <button class="edit" data-editdebt="${d.id}">✎</button>
       <button class="del" data-deldebt="${d.id}">🗑</button>
@@ -930,6 +964,7 @@ function renderDetay(){
 const ov = id => document.getElementById(id);
 function openSheet(id){ ov(id).classList.add('open') }
 function closeSheets(){ document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open')) }
+document.querySelectorAll('.sheet-close').forEach(b => b.onclick = closeSheets);
 document.querySelectorAll('.overlay').forEach(o => {
   if (o.id==='authScreen') return;
   o.addEventListener('click', e => {
@@ -958,6 +993,11 @@ function fillPersonSelect(sel, preselect){
   else if (state.people.length===0) sel.value='__new';
   toggleNewPerson(sel);
 }
+function fillDebtCardSelect(){
+  const sel = document.getElementById('fDebtCard');
+  if (!sel) return;
+  sel.innerHTML = state.cards.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+}
 function toggleNewPerson(sel){
   const w = document.getElementById('fNewPersonWrap');
   if (sel.id==='fDebtPerson') w.style.display = sel.value==='__new' ? 'block' : 'none';
@@ -984,25 +1024,32 @@ function openDebtForm(kind, personId, existing){
   document.getElementById('fNewPerson').value = '';
   document.getElementById('fDebtDate').value = existing ? existing.date : todayISO();
   document.getElementById('fCashDate').value = existing ? existing.date : todayISO();
-  if (kind==='taksit') document.getElementById('fDebtCount').value = existing ? existing.count : 1;
+  if (kind==='taksit'){
+    document.getElementById('fDebtCount').value = existing ? existing.count : 1;
+    fillDebtCardSelect();
+    document.getElementById('fDebtCard').value = existing && existing.cardId ? existing.cardId : (state.cards.find(c=>c.isDefault) || state.cards[0]).id;
+  }
   updatePreview();
   openSheet('ovDebt');
 }
 function updatePreview(){
   if (debtKind!=='taksit') return;
+  const card = state.cards.find(c=>c.id===document.getElementById('fDebtCard').value) || state.cards[0];
+  if (!card) return;
   const dateV = document.getElementById('fDebtDate').value || todayISO();
   const cnt = Number(document.getElementById('fDebtCount').value);
   const amt = Number(document.getElementById('fDebtAmount').value) || 0;
-  const fd = firstDueDate(dateV, state.settings.cutoffDay, state.settings.payDay);
+  const fd = firstDueDate(dateV, card.cutoffDay, card.payDay);
   const per = amt ? TL(Math.floor(amt/cnt*100)/100) : '—';
-  const cut = parseISO(dateV).getDate() > state.settings.cutoffDay ? 'sonraki ekstreye girer' : 'bu ekstreye girer';
+  const cut = parseISO(dateV).getDate() > card.cutoffDay ? 'sonraki ekstreye girer' : 'bu ekstreye girer';
   document.getElementById('fPreview').innerHTML =
-    `Kesim günü <b>${state.settings.cutoffDay}</b> → bu alışveriş ${cut}.<br>
+    `Kart: <b>${card.name}</b> · Kesim günü <b>${card.cutoffDay}</b> → bu alışveriş ${cut}.<br>
      İlk taksit: <b>${fmtDate(fd)}</b> · Aylık: <b>${per}</b><br>
      Son taksit: <b>${fmtDate(addMonths(fd,cnt-1))}</b>`;
 }
 ['fDebtDate','fDebtCount','fDebtAmount'].forEach(id =>
   document.getElementById(id).addEventListener('input', updatePreview));
+document.getElementById('fDebtCard').addEventListener('change', updatePreview);
 document.getElementById('fDebtPerson').addEventListener('change', e => toggleNewPerson(e.target));
 
 async function resolvePerson(sel, newInput){
@@ -1024,8 +1071,9 @@ document.getElementById('fDebtSave').onclick = async () => {
   if (debtKind==='taksit'){
     const date = document.getElementById('fDebtDate').value || todayISO();
     const count = Number(document.getElementById('fDebtCount').value);
-    payload = { kind:'installment', amount, date, desc, count, owe: debtOwe,
-      firstDue: firstDueDate(date, state.settings.cutoffDay, state.settings.payDay) };
+    const card = state.cards.find(c=>c.id===document.getElementById('fDebtCard').value) || state.cards[0];
+    payload = { kind:'installment', amount, date, desc, count, owe: debtOwe, cardId: card.id,
+      firstDue: firstDueDate(date, card.cutoffDay, card.payDay) };
   } else {
     const date = document.getElementById('fCashDate').value || todayISO();
     payload = { kind:debtKind, amount, date, desc };
@@ -1107,18 +1155,70 @@ document.getElementById('btnDelPerson').onclick = async () => {
   await Store.save(state); show('kisiler');
 };
 
-/* Ayarlar */
-function fillSettings(){
-  const c = document.getElementById('setCutoff'), p = document.getElementById('setPayday');
+/* Ayarlar — Kart yönetimi */
+let editingCardId = null;
+function fillCardDaySelects(){
+  const c = document.getElementById('fCardCutoff'), p = document.getElementById('fCardPayday');
   c.innerHTML = ''; p.innerHTML = '';
   for (let i=1;i<=28;i++){
     c.innerHTML += `<option value="${i}">${i}</option>`;
     p.innerHTML += `<option value="${i}">${i}</option>`;
   }
-  c.value = state.settings.cutoffDay;
-  p.value = state.settings.payDay;
-  c.onchange = async () => { state.settings.cutoffDay = Number(c.value); await Store.save(state); render() };
-  p.onchange = async () => { state.settings.payDay = Number(p.value); await Store.save(state); render() };
+}
+function openCardForm(existing){
+  editingCardId = existing ? existing.id : null;
+  document.getElementById('fCardTitle').textContent = existing ? 'Kartı Düzenle' : 'Kart Ekle';
+  fillCardDaySelects();
+  document.getElementById('fCardName').value = existing ? existing.name : '';
+  document.getElementById('fCardCutoff').value = existing ? existing.cutoffDay : 23;
+  document.getElementById('fCardPayday').value = existing ? existing.payDay : 1;
+  openSheet('ovCard');
+}
+document.getElementById('btnAddCard').onclick = () => openCardForm();
+document.getElementById('fCardSave').onclick = async () => {
+  const name = document.getElementById('fCardName').value.trim();
+  if (!name){ alert('Kart adı girin'); return }
+  const cutoffDay = Number(document.getElementById('fCardCutoff').value);
+  const payDay = Number(document.getElementById('fCardPayday').value);
+  if (editingCardId){
+    const c = state.cards.find(x=>x.id===editingCardId);
+    Object.assign(c, { name, cutoffDay, payDay });
+    editingCardId = null;
+  } else {
+    state.cards.push({ id: uid(), name, cutoffDay, payDay, isDefault: state.cards.length===0 });
+  }
+  await Store.save(state); closeSheets(); renderCardList(); fillDebtCardSelect();
+};
+function setDefaultCard(id){
+  state.cards.forEach(c => c.isDefault = c.id===id);
+}
+async function deleteCard(id){
+  const inUse = state.debts.some(d => d.kind==='installment' && d.cardId===id);
+  if (inUse){ alert('Bu karta bağlı borçlar var. Önce onları başka bir karta taşıyın veya silin.'); return }
+  if (state.cards.length<=1){ alert('En az bir kart kalmalı.'); return }
+  if (!await askConfirm('Bu kart silinsin mi?')) return;
+  const wasDefault = state.cards.find(c=>c.id===id)?.isDefault;
+  state.cards = state.cards.filter(c=>c.id!==id);
+  if (wasDefault && state.cards.length) state.cards[0].isDefault = true;
+  await Store.save(state); renderCardList(); fillDebtCardSelect();
+}
+function renderCardList(){
+  const wrap = document.getElementById('listCards');
+  if (!wrap) return;
+  wrap.innerHTML = state.cards.length ? state.cards.map(c => `
+    <div class="setrow">
+      <div class="sl">${c.name}<small>Kesim ${c.cutoffDay} · Ödeme ${c.payDay}</small></div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:.76rem;color:var(--muted);font-weight:600">
+          <input type="radio" name="defaultCard" ${c.isDefault?'checked':''} data-defcard="${c.id}" style="width:auto">Varsayılan
+        </label>
+        <button class="edit" data-editcard="${c.id}">✎</button>
+        <button class="del" data-delcard="${c.id}">🗑</button>
+      </div>
+    </div>`).join('') : '<div class="empty">Kart yok</div>';
+  wrap.querySelectorAll('[data-defcard]').forEach(el => el.onchange = async () => { setDefaultCard(el.dataset.defcard); await Store.save(state); fillDebtCardSelect() });
+  wrap.querySelectorAll('[data-editcard]').forEach(el => el.onclick = () => openCardForm(state.cards.find(c=>c.id===el.dataset.editcard)));
+  wrap.querySelectorAll('[data-delcard]').forEach(el => el.onclick = () => deleteCard(el.dataset.delcard));
 }
 const cSel = document.getElementById('fDebtCount');
 for (const n of [1,2,3,4,5,6,7,8,9,10,11,12]) cSel.innerHTML += `<option value="${n}">${n===1?'Tek çekim':n+' taksit'}</option>`;
@@ -1137,15 +1237,19 @@ document.getElementById('fileImport').onchange = async e => {
   try {
     const data = JSON.parse(await f.text());
     if (!data.settings || !Array.isArray(data.people)) throw 0;
-    state = data; await Store.save(state); fillSettings(); render();
+    state = data;
+    if (!Array.isArray(state.cards)) state.cards = [];
+    migrateCards();
+    await Store.save(state); renderCardList(); fillDebtCardSelect(); render();
     alert('Yedek geri yüklendi ✓');
   } catch { alert('Geçersiz yedek dosyası') }
 };
 document.getElementById('btnWipe').onclick = async () => {
   if (!await askConfirm('TÜM veriler silinecek. Emin misiniz?')) return;
   if (!await askConfirm('Son kez soruyorum: geri alınamaz!')) return;
-  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[] };
-  await Store.save(state); fillSettings(); render();
+  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
+  migrateCards();
+  await Store.save(state); renderCardList(); fillDebtCardSelect(); render();
 };
 
 /* Senkron göstergesi */
@@ -1177,7 +1281,7 @@ document.getElementById('btnLogout').onclick = async () => {
   if (!await askConfirm('Çıkış yapılsın mı?')) return;
   Store._unsubscribeRealtime();
   await sb.auth.signOut();
-  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[] };
+  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
   showAuthScreen();
 };
 
@@ -1196,7 +1300,7 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
   Store._unsubscribeRealtime();
   try { localStorage.removeItem(Store.key); } catch {}
   await sb.auth.signOut();
-  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[] };
+  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
   showAuthScreen();
   // Ayni hesap baska uygulamalarla paylasiliyorsa (bd_/hediye_ vb.) giris kimligi korunur,
   // sadece Borc Defteri verisi silinir; hicbiri yoksa hesap tumuyle silinir.
@@ -1207,8 +1311,10 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
 
 async function bootApp(){
   const loaded = await Store.load();
-  if (loaded) state = { ...state, ...loaded, settings: { cutoffDay:23, payDay:1, ...loaded.settings } };
-  fillSettings();
+  if (loaded) state = { ...state, ...loaded, settings: { cutoffDay:23, payDay:1, ...loaded.settings }, cards: loaded.cards || [] };
+  if (migrateCards()) await Store.save(state);
+  renderCardList();
+  fillDebtCardSelect();
   renderSyncStatus();
   renderAccountEmail();
   showApp();
