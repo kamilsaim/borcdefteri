@@ -1193,11 +1193,13 @@ function renderCardList(){
   wrap.innerHTML = state.cards.length ? state.cards.map(c => `
     <div class="setrow">
       <div class="sl">${c.name}<small>Kesim ${c.cutoffDay} · Ödeme ${c.payDay}</small></div>
-      <label style="display:flex;align-items:center;gap:6px;font-size:.76rem;color:var(--muted);font-weight:600">
-        <input type="radio" name="defaultCard" ${c.isDefault?'checked':''} data-defcard="${c.id}" style="width:auto">Varsayılan
-      </label>
-      <button class="edit" data-editcard="${c.id}">✎</button>
-      <button class="del" data-delcard="${c.id}">🗑</button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <label style="display:flex;align-items:center;gap:6px;font-size:.76rem;color:var(--muted);font-weight:600">
+          <input type="radio" name="defaultCard" ${c.isDefault?'checked':''} data-defcard="${c.id}" style="width:auto">Varsayılan
+        </label>
+        <button class="edit" data-editcard="${c.id}">✎</button>
+        <button class="del" data-delcard="${c.id}">🗑</button>
+      </div>
     </div>`).join('') : '<div class="empty">Kart yok</div>';
   wrap.querySelectorAll('[data-defcard]').forEach(el => el.onchange = async () => { setDefaultCard(el.dataset.defcard); await Store.save(state); fillDebtCardSelect() });
   wrap.querySelectorAll('[data-editcard]').forEach(el => el.onclick = () => openCardForm(state.cards.find(c=>c.id===el.dataset.editcard)));
