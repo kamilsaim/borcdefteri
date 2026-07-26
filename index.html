@@ -490,19 +490,21 @@ const Store = {
     if (!user) return null;
     this._uid = user.id;
     try {
-      const [ay, pe, de, pa] = await Promise.all([
+      const [ay, pe, de, pa, ca] = await Promise.all([
         sb.from('borc_ayarlar').select('*').eq('user_id', user.id).maybeSingle(),
         sb.from('borc_people').select('*').eq('user_id', user.id),
         sb.from('borc_debts').select('*').eq('user_id', user.id),
         sb.from('borc_payments').select('*').eq('user_id', user.id),
+        sb.from('borc_cards').select('*').eq('user_id', user.id),
       ]);
-      const err = ay.error || pe.error || de.error || pa.error;
+      const err = ay.error || pe.error || de.error || pa.error || ca.error;
       if (err) throw err;
       const remote = {
         settings: ay.data ? { cutoffDay: ay.data.cutoff_day, payDay: ay.data.pay_day } : { cutoffDay:23, payDay:1 },
         people: pe.data.map(r => ({ id:r.id, name:r.ad })),
-        debts: de.data.map(r => ({ id:r.id, personId:r.person_id, kind:r.kind, amount:Number(r.amount), date:r.date, desc:r.aciklama||'', count:r.count, firstDue:r.first_due, owe:!!r.owe })),
+        debts: de.data.map(r => ({ id:r.id, personId:r.person_id, kind:r.kind, amount:Number(r.amount), date:r.date, desc:r.aciklama||'', count:r.count, firstDue:r.first_due, owe:!!r.owe, cardId:r.card_id||null })),
         payments: pa.data.map(r => ({ id:r.id, personId:r.person_id, amount:Number(r.amount), date:r.date, dir:r.dir, note:r.note||'' })),
+        cards: ca.data.map(r => ({ id:r.id, name:r.ad, cutoffDay:r.cutoff_day, payDay:r.pay_day, isDefault:!!r.is_default })),
       };
       this._lastSynced = JSON.parse(JSON.stringify(remote));
       this._writeLocal(remote);
@@ -527,9 +529,10 @@ const Store = {
     this._pushing = true;
     this._setStatus('syncing');
     try {
-      const prev = this._lastSynced || { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[] };
+      const prev = this._lastSynced || { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
+      await this._syncTable('borc_cards', prev.cards, s.cards, r => ({ id:r.id, user_id:this._uid, ad:r.name, cutoff_day:r.cutoffDay, pay_day:r.payDay, is_default:!!r.isDefault }));
       await this._syncTable('borc_people', prev.people, s.people, r => ({ id:r.id, user_id:this._uid, ad:r.name }));
-      await this._syncTable('borc_debts', prev.debts, s.debts, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, kind:r.kind, amount:r.amount, date:r.date, aciklama:r.desc||null, count:r.count ?? null, first_due:r.firstDue ?? null, owe:!!r.owe }));
+      await this._syncTable('borc_debts', prev.debts, s.debts, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, kind:r.kind, amount:r.amount, date:r.date, aciklama:r.desc||null, count:r.count ?? null, first_due:r.firstDue ?? null, owe:!!r.owe, card_id:r.cardId||null }));
       await this._syncTable('borc_payments', prev.payments, s.payments, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, amount:r.amount, date:r.date, dir:r.dir, note:r.note||null }));
       if (JSON.stringify(prev.settings) !== JSON.stringify(s.settings)){
         const { error } = await sb.from('borc_ayarlar').upsert({ user_id:this._uid, cutoff_day:s.settings.cutoffDay, pay_day:s.settings.payDay, updated_at:new Date().toISOString() });
@@ -575,6 +578,7 @@ const Store = {
       .on('postgres_changes', { event:'*', schema:'public', table:'borc_debts', filter:`user_id=eq.${this._uid}` }, onChange)
       .on('postgres_changes', { event:'*', schema:'public', table:'borc_payments', filter:`user_id=eq.${this._uid}` }, onChange)
       .on('postgres_changes', { event:'*', schema:'public', table:'borc_ayarlar', filter:`user_id=eq.${this._uid}` }, onChange)
+      .on('postgres_changes', { event:'*', schema:'public', table:'borc_cards', filter:`user_id=eq.${this._uid}` }, onChange)
       .subscribe();
   },
 
@@ -587,8 +591,9 @@ window.addEventListener('online', () => { if (Store._pending) Store._push(Store.
 let state = {
   settings: { cutoffDay: 23, payDay: 1 },
   people: [],   // {id, name}
-  debts: [],    // {id, personId, kind:'cash_out'|'cash_in'|'installment', amount, date, desc, count, firstDue}
-  payments: []  // {id, personId, amount, date, dir:'in'|'out', note}
+  debts: [],    // {id, personId, kind:'cash_out'|'cash_in'|'installment', amount, date, desc, count, firstDue, cardId}
+  payments: [], // {id, personId, amount, date, dir:'in'|'out', note}
+  cards: []     // {id, name, cutoffDay, payDay, isDefault}
 };
 
 const uid = () => crypto.randomUUID();
@@ -679,6 +684,11 @@ function personBalance(personId){
            creditR: r.credit, creditP: p.credit };
 }
 const personName = id => (state.people.find(p=>p.id===id)||{name:'?'}).name;
+function migrateCards(){
+  if (state.cards && state.cards.length) return false;
+  state.cards = [{ id: uid(), name: 'Varsayılan Kart', cutoffDay: state.settings.cutoffDay, payDay: state.settings.payDay, isDefault: true }];
+  return true;
+}
 
 /* =================== GÖRÜNÜMLER =================== */
 let currentTab = 'ozet', currentPerson = null;
@@ -1222,8 +1232,10 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
 
 async function bootApp(){
   const loaded = await Store.load();
-  if (loaded) state = { ...state, ...loaded, settings: { cutoffDay:23, payDay:1, ...loaded.settings } };
-  fillSettings();
+  if (loaded) state = { ...state, ...loaded, settings: { cutoffDay:23, payDay:1, ...loaded.settings }, cards: loaded.cards || [] };
+  if (migrateCards()) await Store.save(state);
+  renderCardList();
+  fillDebtCardSelect();
   renderSyncStatus();
   renderAccountEmail();
   showApp();
