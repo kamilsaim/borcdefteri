@@ -352,16 +352,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <button class="ghost" id="btnDeleteAccount" style="color:var(--borc)">Hesabımı sil</button>
     <div class="hint">Bu işlem hesabınızı ve tüm borç/alacak kayıtlarınızı kalıcı olarak siler. <a href="gizlilik-politikasi.html" style="color:var(--muted)">Gizlilik politikası</a></div>
     <h2 class="sec">Kart Ayarları</h2>
-    <div class="card">
-      <div class="setrow">
-        <div class="sl">Kesim günü<small>Ekstrenin kesildiği gün</small></div>
-        <select id="setCutoff"></select>
-      </div>
-      <div class="setrow">
-        <div class="sl">Son ödeme günü<small>Taksitlerin vade günü</small></div>
-        <select id="setPayday"></select>
-      </div>
-    </div>
+    <div class="card" id="listCards"></div>
+    <button class="ghost" id="btnAddCard">＋ Kart Ekle</button>
     <h2 class="sec">Veri</h2>
     <div class="card" style="padding:12px">
       <button class="ghost" id="btnExport">Yedeği indir (JSON)</button>
@@ -444,6 +436,22 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <input id="fPayNote" placeholder="Örn. Ağustos taksiti">
     <div class="hint">Ödeme, kişinin <b>en eski açık borcundan</b> başlayarak düşülür. Eksik kalan tutar sonraki aya devreder.</div>
     <button class="primary" id="fPaySave">Kaydet</button>
+  </div>
+</div>
+
+<!-- KART FORMU -->
+<div class="overlay" id="ovCard">
+  <div class="sheet">
+    <button class="sheet-close" data-close>×</button>
+    <div class="grip"></div>
+    <h3 id="fCardTitle">Kart Ekle</h3>
+    <label>Kart adı</label>
+    <input id="fCardName" placeholder="Örn. Bonus Kart">
+    <label>Kesim günü</label>
+    <select id="fCardCutoff"></select>
+    <label>Son ödeme günü</label>
+    <select id="fCardPayday"></select>
+    <button class="primary" id="fCardSave">Kaydet</button>
   </div>
 </div>
 
@@ -1132,18 +1140,68 @@ document.getElementById('btnDelPerson').onclick = async () => {
   await Store.save(state); show('kisiler');
 };
 
-/* Ayarlar */
-function fillSettings(){
-  const c = document.getElementById('setCutoff'), p = document.getElementById('setPayday');
+/* Ayarlar — Kart yönetimi */
+let editingCardId = null;
+function fillCardDaySelects(){
+  const c = document.getElementById('fCardCutoff'), p = document.getElementById('fCardPayday');
   c.innerHTML = ''; p.innerHTML = '';
   for (let i=1;i<=28;i++){
     c.innerHTML += `<option value="${i}">${i}</option>`;
     p.innerHTML += `<option value="${i}">${i}</option>`;
   }
-  c.value = state.settings.cutoffDay;
-  p.value = state.settings.payDay;
-  c.onchange = async () => { state.settings.cutoffDay = Number(c.value); await Store.save(state); render() };
-  p.onchange = async () => { state.settings.payDay = Number(p.value); await Store.save(state); render() };
+}
+function openCardForm(existing){
+  editingCardId = existing ? existing.id : null;
+  document.getElementById('fCardTitle').textContent = existing ? 'Kartı Düzenle' : 'Kart Ekle';
+  fillCardDaySelects();
+  document.getElementById('fCardName').value = existing ? existing.name : '';
+  document.getElementById('fCardCutoff').value = existing ? existing.cutoffDay : 23;
+  document.getElementById('fCardPayday').value = existing ? existing.payDay : 1;
+  openSheet('ovCard');
+}
+document.getElementById('btnAddCard').onclick = () => openCardForm();
+document.getElementById('fCardSave').onclick = async () => {
+  const name = document.getElementById('fCardName').value.trim();
+  if (!name){ alert('Kart adı girin'); return }
+  const cutoffDay = Number(document.getElementById('fCardCutoff').value);
+  const payDay = Number(document.getElementById('fCardPayday').value);
+  if (editingCardId){
+    const c = state.cards.find(x=>x.id===editingCardId);
+    Object.assign(c, { name, cutoffDay, payDay });
+    editingCardId = null;
+  } else {
+    state.cards.push({ id: uid(), name, cutoffDay, payDay, isDefault: state.cards.length===0 });
+  }
+  await Store.save(state); closeSheets(); renderCardList(); fillDebtCardSelect();
+};
+function setDefaultCard(id){
+  state.cards.forEach(c => c.isDefault = c.id===id);
+}
+async function deleteCard(id){
+  const inUse = state.debts.some(d => d.kind==='installment' && d.cardId===id);
+  if (inUse){ alert('Bu karta bağlı borçlar var. Önce onları başka bir karta taşıyın veya silin.'); return }
+  if (state.cards.length<=1){ alert('En az bir kart kalmalı.'); return }
+  if (!await askConfirm('Bu kart silinsin mi?')) return;
+  const wasDefault = state.cards.find(c=>c.id===id)?.isDefault;
+  state.cards = state.cards.filter(c=>c.id!==id);
+  if (wasDefault && state.cards.length) state.cards[0].isDefault = true;
+  await Store.save(state); renderCardList(); fillDebtCardSelect();
+}
+function renderCardList(){
+  const wrap = document.getElementById('listCards');
+  if (!wrap) return;
+  wrap.innerHTML = state.cards.length ? state.cards.map(c => `
+    <div class="setrow">
+      <div class="sl">${c.name}<small>Kesim ${c.cutoffDay} · Ödeme ${c.payDay}</small></div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:.76rem;color:var(--muted);font-weight:600">
+        <input type="radio" name="defaultCard" ${c.isDefault?'checked':''} data-defcard="${c.id}" style="width:auto">Varsayılan
+      </label>
+      <button class="edit" data-editcard="${c.id}">✎</button>
+      <button class="del" data-delcard="${c.id}">🗑</button>
+    </div>`).join('') : '<div class="empty">Kart yok</div>';
+  wrap.querySelectorAll('[data-defcard]').forEach(el => el.onchange = async () => { setDefaultCard(el.dataset.defcard); await Store.save(state); fillDebtCardSelect() });
+  wrap.querySelectorAll('[data-editcard]').forEach(el => el.onclick = () => openCardForm(state.cards.find(c=>c.id===el.dataset.editcard)));
+  wrap.querySelectorAll('[data-delcard]').forEach(el => el.onclick = () => deleteCard(el.dataset.delcard));
 }
 const cSel = document.getElementById('fDebtCount');
 for (const n of [1,2,3,4,5,6,7,8,9,10,11,12]) cSel.innerHTML += `<option value="${n}">${n===1?'Tek çekim':n+' taksit'}</option>`;
@@ -1162,15 +1220,19 @@ document.getElementById('fileImport').onchange = async e => {
   try {
     const data = JSON.parse(await f.text());
     if (!data.settings || !Array.isArray(data.people)) throw 0;
-    state = data; await Store.save(state); fillSettings(); render();
+    state = data;
+    if (!Array.isArray(state.cards)) state.cards = [];
+    migrateCards();
+    await Store.save(state); renderCardList(); fillDebtCardSelect(); render();
     alert('Yedek geri yüklendi ✓');
   } catch { alert('Geçersiz yedek dosyası') }
 };
 document.getElementById('btnWipe').onclick = async () => {
   if (!await askConfirm('TÜM veriler silinecek. Emin misiniz?')) return;
   if (!await askConfirm('Son kez soruyorum: geri alınamaz!')) return;
-  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[] };
-  await Store.save(state); fillSettings(); render();
+  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
+  migrateCards();
+  await Store.save(state); renderCardList(); fillDebtCardSelect(); render();
 };
 
 /* Senkron göstergesi */
@@ -1202,7 +1264,7 @@ document.getElementById('btnLogout').onclick = async () => {
   if (!await askConfirm('Çıkış yapılsın mı?')) return;
   Store._unsubscribeRealtime();
   await sb.auth.signOut();
-  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[] };
+  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
   showAuthScreen();
 };
 
@@ -1221,7 +1283,7 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
   Store._unsubscribeRealtime();
   try { localStorage.removeItem(Store.key); } catch {}
   await sb.auth.signOut();
-  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[] };
+  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
   showAuthScreen();
   // Ayni hesap baska uygulamalarla paylasiliyorsa (bd_/hediye_ vb.) giris kimligi korunur,
   // sadece Borc Defteri verisi silinir; hicbiri yoksa hesap tumuyle silinir.
