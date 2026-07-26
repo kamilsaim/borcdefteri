@@ -401,6 +401,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <label>Toplam tutar (₺)</label>
     <input id="fDebtAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0">
     <div id="fTaksitWrap">
+      <label>Kart</label>
+      <select id="fDebtCard"></select>
       <label>Taksit sayısı</label>
       <select id="fDebtCount"></select>
       <label>Alışveriş tarihi</label>
@@ -991,6 +993,11 @@ function fillPersonSelect(sel, preselect){
   else if (state.people.length===0) sel.value='__new';
   toggleNewPerson(sel);
 }
+function fillDebtCardSelect(){
+  const sel = document.getElementById('fDebtCard');
+  if (!sel) return;
+  sel.innerHTML = state.cards.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+}
 function toggleNewPerson(sel){
   const w = document.getElementById('fNewPersonWrap');
   if (sel.id==='fDebtPerson') w.style.display = sel.value==='__new' ? 'block' : 'none';
@@ -1017,25 +1024,32 @@ function openDebtForm(kind, personId, existing){
   document.getElementById('fNewPerson').value = '';
   document.getElementById('fDebtDate').value = existing ? existing.date : todayISO();
   document.getElementById('fCashDate').value = existing ? existing.date : todayISO();
-  if (kind==='taksit') document.getElementById('fDebtCount').value = existing ? existing.count : 1;
+  if (kind==='taksit'){
+    document.getElementById('fDebtCount').value = existing ? existing.count : 1;
+    fillDebtCardSelect();
+    document.getElementById('fDebtCard').value = existing && existing.cardId ? existing.cardId : (state.cards.find(c=>c.isDefault) || state.cards[0]).id;
+  }
   updatePreview();
   openSheet('ovDebt');
 }
 function updatePreview(){
   if (debtKind!=='taksit') return;
+  const card = state.cards.find(c=>c.id===document.getElementById('fDebtCard').value) || state.cards[0];
+  if (!card) return;
   const dateV = document.getElementById('fDebtDate').value || todayISO();
   const cnt = Number(document.getElementById('fDebtCount').value);
   const amt = Number(document.getElementById('fDebtAmount').value) || 0;
-  const fd = firstDueDate(dateV, state.settings.cutoffDay, state.settings.payDay);
+  const fd = firstDueDate(dateV, card.cutoffDay, card.payDay);
   const per = amt ? TL(Math.floor(amt/cnt*100)/100) : '—';
-  const cut = parseISO(dateV).getDate() > state.settings.cutoffDay ? 'sonraki ekstreye girer' : 'bu ekstreye girer';
+  const cut = parseISO(dateV).getDate() > card.cutoffDay ? 'sonraki ekstreye girer' : 'bu ekstreye girer';
   document.getElementById('fPreview').innerHTML =
-    `Kesim günü <b>${state.settings.cutoffDay}</b> → bu alışveriş ${cut}.<br>
+    `Kart: <b>${card.name}</b> · Kesim günü <b>${card.cutoffDay}</b> → bu alışveriş ${cut}.<br>
      İlk taksit: <b>${fmtDate(fd)}</b> · Aylık: <b>${per}</b><br>
      Son taksit: <b>${fmtDate(addMonths(fd,cnt-1))}</b>`;
 }
 ['fDebtDate','fDebtCount','fDebtAmount'].forEach(id =>
   document.getElementById(id).addEventListener('input', updatePreview));
+document.getElementById('fDebtCard').addEventListener('change', updatePreview);
 document.getElementById('fDebtPerson').addEventListener('change', e => toggleNewPerson(e.target));
 
 async function resolvePerson(sel, newInput){
@@ -1057,8 +1071,9 @@ document.getElementById('fDebtSave').onclick = async () => {
   if (debtKind==='taksit'){
     const date = document.getElementById('fDebtDate').value || todayISO();
     const count = Number(document.getElementById('fDebtCount').value);
-    payload = { kind:'installment', amount, date, desc, count, owe: debtOwe,
-      firstDue: firstDueDate(date, state.settings.cutoffDay, state.settings.payDay) };
+    const card = state.cards.find(c=>c.id===document.getElementById('fDebtCard').value) || state.cards[0];
+    payload = { kind:'installment', amount, date, desc, count, owe: debtOwe, cardId: card.id,
+      firstDue: firstDueDate(date, card.cutoffDay, card.payDay) };
   } else {
     const date = document.getElementById('fCashDate').value || todayISO();
     payload = { kind:debtKind, amount, date, desc };
