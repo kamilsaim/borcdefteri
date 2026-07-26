@@ -894,10 +894,14 @@ function renderDetay(){
     const map = (d.kind==='cash_in' || d.owe) ? pMap : rMap;
     const it = map[d.id+'#0'];
     const st = it ? itemStatus(it, ref) : null;
+    const tick = st==='odendi' ? '<span class="tick full">✓</span>'
+               : st==='kismi'  ? '<span class="tick half">◐</span>'
+               : st==='gecikti'? '<span class="tick late">!</span>'
+               : '<span class="tick"></span>';
     return `<div class="row">
+      ${tick}
       <div class="who"><div class="n" style="font-weight:600;font-size:.86rem">💳 Tek Çekim${d.owe?' · Başkasının kartı':''}${d.desc?` · ${d.desc}`:''}</div>
       <div class="d">${fmtDate(d.date)}</div></div>
-      ${st?`<span class="chip ${st}">${CHIP[st]}</span>`:''}
       <div class="amt mut">${TL(d.amount)}</div>
       <button class="edit" data-editdebt="${d.id}">✎</button>
       <button class="del" data-deldebt="${d.id}">🗑</button>
