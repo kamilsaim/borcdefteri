@@ -195,10 +195,17 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 }
 .overlay.open{display:flex}
 .sheet{
+  position:relative;
   background:var(--surface);border-radius:20px;width:100%;max-width:480px;
   max-height:88dvh;overflow-y:auto;padding:8px 18px 20px;
   border:2px solid var(--brass-dim);animation:up .18s ease;
 }
+.sheet-close{
+  position:absolute;top:10px;right:10px;width:30px;height:30px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;color:var(--muted);
+  font-size:1.2rem;line-height:1;
+}
+.sheet-close:active{background:var(--surface2)}
 @keyframes up{from{transform:translateY(10px) scale(.98);opacity:0}to{transform:none;opacity:1}}
 .grip{width:40px;height:4px;border-radius:2px;background:var(--line);margin:6px auto 12px}
 .sheet h3{font-family:var(--mono);font-size:.8rem;letter-spacing:.12em;color:var(--brass);text-transform:uppercase;margin-bottom:4px}
@@ -377,6 +384,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 <!-- YENİ İŞLEM MENÜSÜ -->
 <div class="overlay" id="ovMenu">
   <div class="sheet">
+    <button class="sheet-close" data-close>×</button>
     <div class="grip"></div>
     <h3>Yeni Kayıt</h3>
     <button class="menuopt" data-new="taksit"><span class="mi" style="color:var(--brass)">💳</span><span>Kart ile Taksitli Alışveriş<small>Kartımla başkası adına yaptım</small></span></button>
@@ -390,6 +398,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 <!-- BORÇ FORMU (nakit + taksit) -->
 <div class="overlay" id="ovDebt">
   <div class="sheet">
+    <button class="sheet-close" data-close>×</button>
     <div class="grip"></div>
     <h3 id="fDebtTitle">Kayıt</h3>
     <label>Kişi</label>
@@ -417,6 +426,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 <!-- ÖDEME FORMU -->
 <div class="overlay" id="ovPay">
   <div class="sheet">
+    <button class="sheet-close" data-close>×</button>
     <div class="grip"></div>
     <h3>Ödeme / Tahsilat</h3>
     <label>Yön</label>
@@ -930,6 +940,7 @@ function renderDetay(){
 const ov = id => document.getElementById(id);
 function openSheet(id){ ov(id).classList.add('open') }
 function closeSheets(){ document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open')) }
+document.querySelectorAll('.sheet-close').forEach(b => b.onclick = closeSheets);
 document.querySelectorAll('.overlay').forEach(o => {
   if (o.id==='authScreen') return;
   o.addEventListener('click', e => {
