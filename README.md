@@ -9,7 +9,7 @@
 Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 ödemeleri tek bir dosyada takip edin — hepsi cihazınızda, isteğe bağlı bulut yedeğiyle.
 
-![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.6.0-2E7D5B)
+![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.6.1-2E7D5B)
 ![Platform](https://img.shields.io/badge/platform-Web%20%C2%B7%20PWA-2E7D5B)
 ![Yapı](https://img.shields.io/badge/yap%C4%B1-tek%20dosya%20HTML-0F1512)
 
@@ -75,6 +75,7 @@ bu adım hiç devreye girmez.
 
 | Sürüm | Yenilikler |
 |---|---|
+| **v1.6.1** | Yakınlaştırma kapatıldı, tek çekim görünümü taksit planıyla birleştirildi, + butonu/son satır çakışması düzeltildi |
 | **v1.6.0** | Başkasının kartıyla taksit: arkadaşının kartıyla yapılan taksitli alışverişi kırmızı borç olarak ekleme |
 | **v1.5.0** | Google giriş ekranına logo, Ayarlar'da program bilgisi ve oturum e-postası, aylık görünümde ödenen/kalan tutar, favicon ve yeni logo |
 | **v1.x** | Kişi bazlı borç/alacak, kart taksitleri, kısmi ödeme takibi, aylık görünüm, bulut senkronu |
