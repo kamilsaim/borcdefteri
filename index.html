@@ -342,7 +342,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.6.1</div>
+        <div class="hint">Sürüm 1.6.2</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -910,7 +910,7 @@ function renderDetay(){
       </div><div class="plan">${plan}</div>`;
   }).join('') : '<div class="empty">Kayıtlı borç yok</div>';
 
-  document.getElementById('dDebtsTek').innerHTML = debtsTek.length ? debtsTek.map(d => {
+  document.getElementById('dDebtsTek').innerHTML = debtsTek.length ? `<div class="debthead"><div class="t">💳 Tek Çekim</div></div><div class="plan">${debtsTek.map(d => {
     const map = (d.kind==='cash_in' || d.owe) ? pMap : rMap;
     const it = map[d.id+'#0'];
     const st = it ? itemStatus(it, ref) : null;
@@ -919,16 +919,14 @@ function renderDetay(){
                : st==='gecikti'? '<span class="tick late">!</span>'
                : '<span class="tick"></span>';
     const rem = it ? Math.round((it.amount-it.paid)*100)/100 : d.amount;
-    return `<div class="debthead">
-        <div class="t">💳 Tek Çekim${d.owe?' · Başkasının kartı':''}${d.desc?` · <span style="font-weight:500;color:var(--muted)">${d.desc}</span>`:''}<br><span style="font-weight:400;font-size:.74rem;color:var(--muted)">${fmtDate(d.date)}</span></div>
-        <span class="amt mut" style="font-size:.85rem">${TL(d.amount)}</span>
+    return `<div class="prow">${tick}
+        <span class="pd">${fmtShort(d.date)}${d.owe?' · Başkasının kartı':''}${d.desc?` · ${d.desc}`:''}</span>
+        ${it&&it.paid>0&&rem>0?`<span style="font-size:.72rem;color:var(--muted)">${TL(it.paid)} /</span>`:''}
+        <span class="pa">${TL(d.amount)}</span>
         <button class="edit" data-editdebt="${d.id}">✎</button>
         <button class="del" data-deldebt="${d.id}">🗑</button>
-      </div><div class="plan"><div class="prow">${tick}
-        <span class="pd">${fmtShort(d.date)}</span>
-        ${it&&it.paid>0&&rem>0?`<span style="font-size:.72rem;color:var(--muted)">${TL(it.paid)} /</span>`:''}
-        <span class="pa">${TL(d.amount)}</span></div></div>`;
-  }).join('') : '<div class="empty">Tek çekim yok</div>';
+      </div>`;
+  }).join('')}</div>` : '<div class="empty">Tek çekim yok</div>';
 
   const pays = state.payments.filter(x=>x.personId===p.id).sort((a,b)=>a.date<b.date?1:-1);
   document.getElementById('dPays').innerHTML = pays.length ? pays.map(x => `
