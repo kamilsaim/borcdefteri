@@ -1290,7 +1290,7 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
   if (!await askConfirm('Son onay: hesabınızı gerçekten silmek istediğinize emin misiniz?')) return;
   let result;
   try {
-    const { data, error } = await sb.functions.invoke('delete-account');
+    const { data, error } = await sb.functions.invoke('borc-delete-account');
     if (error) throw error;
     result = data;
   } catch (e) {
