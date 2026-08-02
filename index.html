@@ -118,6 +118,12 @@ h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
   display:flex;align-items:center;gap:12px;background:var(--surface);
   border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:10px;
 }
+.person{touch-action:pan-y;user-select:none;-webkit-user-select:none}
+.person.dragging{
+  position:fixed;z-index:1000;box-shadow:0 10px 28px rgba(0,0,0,.4);
+  opacity:.96;pointer-events:none;margin:0;
+}
+.person-placeholder{border-radius:var(--radius);margin-bottom:10px}
 .avatar{
   width:42px;height:42px;border-radius:12px;background:var(--surface2);
   display:flex;align-items:center;justify-content:center;
@@ -502,7 +508,7 @@ const Store = {
     try {
       const [ay, pe, de, pa, ca] = await Promise.all([
         sb.from('borc_ayarlar').select('*').eq('user_id', user.id).maybeSingle(),
-        sb.from('borc_people').select('*').eq('user_id', user.id),
+        sb.from('borc_people').select('*').eq('user_id', user.id).order('sort_order', { ascending: true, nullsFirst: false }),
         sb.from('borc_debts').select('*').eq('user_id', user.id),
         sb.from('borc_payments').select('*').eq('user_id', user.id),
         sb.from('borc_cards').select('*').eq('user_id', user.id),
@@ -511,7 +517,7 @@ const Store = {
       if (err) throw err;
       const remote = {
         settings: ay.data ? { cutoffDay: ay.data.cutoff_day, payDay: ay.data.pay_day } : { cutoffDay:23, payDay:1 },
-        people: pe.data.map(r => ({ id:r.id, name:r.ad })),
+        people: pe.data.map(r => ({ id:r.id, name:r.ad, sortOrder:r.sort_order })),
         debts: de.data.map(r => ({ id:r.id, personId:r.person_id, kind:r.kind, amount:Number(r.amount), date:r.date, desc:r.aciklama||'', count:r.count, firstDue:r.first_due, owe:!!r.owe, cardId:r.card_id||null })),
         payments: pa.data.map(r => ({ id:r.id, personId:r.person_id, amount:Number(r.amount), date:r.date, dir:r.dir, note:r.note||'' })),
         cards: ca.data.map(r => ({ id:r.id, name:r.ad, cutoffDay:r.cutoff_day, payDay:r.pay_day, isDefault:!!r.is_default })),
@@ -541,7 +547,7 @@ const Store = {
     try {
       const prev = this._lastSynced || { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
       await this._syncTable('borc_cards', prev.cards, s.cards, r => ({ id:r.id, user_id:this._uid, ad:r.name, cutoff_day:r.cutoffDay, pay_day:r.payDay, is_default:!!r.isDefault }));
-      await this._syncTable('borc_people', prev.people, s.people, r => ({ id:r.id, user_id:this._uid, ad:r.name }));
+      await this._syncTable('borc_people', prev.people, s.people, r => ({ id:r.id, user_id:this._uid, ad:r.name, sort_order:r.sortOrder }));
       await this._syncTable('borc_debts', prev.debts, s.debts, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, kind:r.kind, amount:r.amount, date:r.date, aciklama:r.desc||null, count:r.count ?? null, first_due:r.firstDue ?? null, owe:!!r.owe, card_id:r.cardId||null }));
       await this._syncTable('borc_payments', prev.payments, s.payments, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, amount:r.amount, date:r.date, dir:r.dir, note:r.note||null }));
       if (JSON.stringify(prev.settings) !== JSON.stringify(s.settings)){
@@ -697,6 +703,11 @@ const personName = id => (state.people.find(p=>p.id===id)||{name:'?'}).name;
 function migrateCards(){
   if (state.cards && state.cards.length) return false;
   state.cards = [{ id: uid(), name: 'Varsayılan Kart', cutoffDay: state.settings.cutoffDay, payDay: state.settings.payDay, isDefault: true }];
+  return true;
+}
+function migratePeopleOrder(){
+  if (!state.people.some(p => p.sortOrder == null)) return false;
+  state.people.forEach((p, i) => { p.sortOrder = i });
   return true;
 }
 
@@ -863,7 +874,108 @@ function renderKisiler(){
       <div class="amt ${net>0?'pos':net<0?'neg':'mut'}">${net>0?'+':net<0?'−':''}${TL(Math.abs(net))}</div>
     </div>`;
   }).join('');
-  wrap.querySelectorAll('[data-person]').forEach(el => el.onclick = () => { currentPerson = el.dataset.person; show('detay') });
+  wrap.querySelectorAll('[data-person]').forEach(el => el.onclick = () => {
+    if (kisiDrag.justDragged) return;
+    currentPerson = el.dataset.person; show('detay');
+  });
+  wireKisiDrag(wrap);
+}
+
+const kisiDrag = { active:null, justDragged:false };
+
+function wireKisiDrag(wrap){
+  wrap.querySelectorAll('.person').forEach(el => {
+    let timer = null, startX = 0, startY = 0, longPressed = false;
+
+    const cancelTimer = () => { if (timer){ clearTimeout(timer); timer = null } };
+
+    el.addEventListener('pointerdown', e => {
+      if (e.button != null && e.button !== 0) return;
+      startX = e.clientX; startY = e.clientY; longPressed = false;
+      cancelTimer();
+      timer = setTimeout(() => { longPressed = true; startKisiDrag(el, wrap, e) }, 350);
+    });
+
+    el.addEventListener('pointermove', e => {
+      if (longPressed){ onKisiDragMove(e); return }
+      if (!timer) return;
+      if (Math.abs(e.clientX - startX) > 10 || Math.abs(e.clientY - startY) > 10) cancelTimer();
+    });
+
+    el.addEventListener('pointerup', e => {
+      cancelTimer();
+      if (longPressed) endKisiDrag(el);
+      longPressed = false;
+    });
+
+    el.addEventListener('pointercancel', () => {
+      cancelTimer();
+      if (longPressed) endKisiDrag(el);
+      longPressed = false;
+    });
+  });
+}
+
+function startKisiDrag(el, wrap, e){
+  const rect = el.getBoundingClientRect();
+  const placeholder = document.createElement('div');
+  placeholder.className = 'person-placeholder';
+  placeholder.style.height = rect.height + 'px';
+  el.after(placeholder);
+
+  kisiDrag.active = {
+    el, wrap, placeholder,
+    startY: e.clientY,
+    origLeft: rect.left, origTop: rect.top,
+    width: rect.width, height: rect.height,
+  };
+
+  el.classList.add('dragging');
+  el.style.left = rect.left + 'px';
+  el.style.top = rect.top + 'px';
+  el.style.width = rect.width + 'px';
+  try { el.setPointerCapture(e.pointerId) } catch(err) {}
+}
+
+function onKisiDragMove(e){
+  const d = kisiDrag.active;
+  if (!d) return;
+  e.preventDefault();
+  const dy = e.clientY - d.startY;
+  d.el.style.top = (d.origTop + dy) + 'px';
+
+  const draggedCenter = d.origTop + dy + d.height / 2;
+  const siblings = [...d.wrap.querySelectorAll('.person:not(.dragging)')];
+  let target = null;
+  for (const sib of siblings){
+    const r = sib.getBoundingClientRect();
+    if (draggedCenter < r.top + r.height / 2){ target = sib; break }
+  }
+  if (target){
+    if (d.placeholder.nextSibling !== target) d.wrap.insertBefore(d.placeholder, target);
+  } else {
+    if (d.wrap.lastElementChild !== d.placeholder) d.wrap.appendChild(d.placeholder);
+  }
+}
+
+async function endKisiDrag(el){
+  const d = kisiDrag.active;
+  if (!d) return;
+  kisiDrag.active = null;
+
+  d.wrap.insertBefore(d.el, d.placeholder);
+  d.wrap.removeChild(d.placeholder);
+  el.classList.remove('dragging');
+  el.style.left = ''; el.style.top = ''; el.style.width = '';
+
+  kisiDrag.justDragged = true;
+  setTimeout(() => { kisiDrag.justDragged = false }, 0);
+
+  const newOrder = [...d.wrap.querySelectorAll('[data-person]')].map(x => x.dataset.person);
+  const byId = Object.fromEntries(state.people.map(p => [p.id, p]));
+  state.people = newOrder.map((id, i) => { byId[id].sortOrder = i; return byId[id] });
+
+  await Store.save(state);
 }
 
 function renderDetay(){
@@ -1056,7 +1168,8 @@ async function resolvePerson(sel, newInput){
   if (sel.value !== '__new') return sel.value;
   const name = newInput.value.trim();
   if (!name){ alert('Kişi adı girin'); return null }
-  const p = { id: uid(), name };
+  const nextOrder = state.people.length ? Math.max(...state.people.map(p=>p.sortOrder ?? 0)) + 1 : 0;
+  const p = { id: uid(), name, sortOrder: nextOrder };
   state.people.push(p);
   return p.id;
 }
@@ -1240,6 +1353,7 @@ document.getElementById('fileImport').onchange = async e => {
     state = data;
     if (!Array.isArray(state.cards)) state.cards = [];
     migrateCards();
+    migratePeopleOrder();
     await Store.save(state); renderCardList(); fillDebtCardSelect(); render();
     alert('Yedek geri yüklendi ✓');
   } catch { alert('Geçersiz yedek dosyası') }
@@ -1312,7 +1426,9 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
 async function bootApp(){
   const loaded = await Store.load();
   if (loaded) state = { ...state, ...loaded, settings: { cutoffDay:23, payDay:1, ...loaded.settings }, cards: loaded.cards || [] };
-  if (migrateCards()) await Store.save(state);
+  const migratedCards = migrateCards();
+  const migratedOrder = migratePeopleOrder();
+  if (migratedCards || migratedOrder) await Store.save(state);
   renderCardList();
   fillDebtCardSelect();
   renderSyncStatus();
