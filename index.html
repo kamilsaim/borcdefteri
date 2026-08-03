@@ -602,7 +602,10 @@ const Store = {
     if (this._channel){ sb.removeChannel(this._channel); this._channel = null }
   }
 };
-window.addEventListener('online', () => { if (Store._pending) Store._push(Store._pending) });
+window.addEventListener('online', () => {
+  if (Store._pending) Store._push(Store._pending);
+  else if (Store.status === 'offline' && Store._uid) reloadFromRemote();
+});
 
 let state = {
   settings: { cutoffDay: 23, payDay: 1 },
@@ -1423,9 +1426,29 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
     : 'Hesabınız ve tüm verileriniz silindi.');
 };
 
+function applyLoaded(loaded){
+  if (loaded) state = { ...state, ...loaded, settings: { cutoffDay:23, payDay:1, ...loaded.settings }, cards: loaded.cards || [] };
+}
+
+// Ilk girisin hemen ardindan Supabase istegi bazen basarisiz donuyor (token yeni kurulmus oluyor);
+// yerel onbellek de bos oldugu icin uygulama bombos aciliyordu. Basarili yukleme olana kadar tekrar dene.
+let reloadTimer = null;
+async function reloadFromRemote(attempt = 0){
+  clearTimeout(reloadTimer);
+  const loaded = await Store.load();
+  if (Store.status === 'synced'){
+    applyLoaded(loaded);
+    renderCardList();
+    fillDebtCardSelect();
+    render();
+    return;
+  }
+  if (attempt < 5) reloadTimer = setTimeout(() => reloadFromRemote(attempt + 1), Math.min(1000 * 2 ** attempt, 15000));
+}
+
 async function bootApp(){
   const loaded = await Store.load();
-  if (loaded) state = { ...state, ...loaded, settings: { cutoffDay:23, payDay:1, ...loaded.settings }, cards: loaded.cards || [] };
+  applyLoaded(loaded);
   const migratedCards = migrateCards();
   const migratedOrder = migratePeopleOrder();
   if (migratedCards || migratedOrder) await Store.save(state);
@@ -1435,6 +1458,7 @@ async function bootApp(){
   renderAccountEmail();
   showApp();
   show(currentTab);
+  if (Store.status !== 'synced') reloadFromRemote();
 }
 
 async function renderAccountEmail(){
