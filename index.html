@@ -208,6 +208,12 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
   display:none;align-items:center;justify-content:center;padding:20px;
 }
 .overlay.open{display:flex}
+.toast{
+  position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(90px + var(--vvgap,0px));z-index:60;
+  background:rgba(0,0,0,.85);color:#fff;padding:10px 16px;border-radius:999px;
+  font-size:14px;pointer-events:none;
+}
 .sheet{
   position:relative;
   background:var(--surface);border-radius:20px;width:100%;max-width:480px;
@@ -1541,6 +1547,44 @@ document.getElementById('btnGoogleLogin').onclick = async () => {
     sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: CLEAN_URL } });
   }
 };
+
+/* ---- Android geri tuşu (APK) ----
+   Sıra: açık popup varsa kapat → kişi detayındaysan listeye dön → başka sekmedeysen
+   Özet'e dön → 2 sn içinde ikinci basışta uygulamadan çık. Geri tuşu hiçbir zaman
+   tarayıcı geçmişinde gezinmiyor, aksi halde OAuth dönüşünden kalan kayıtlar yüzünden
+   giriş ekranına düşüyordu. Sadece native platformda; iOS/PWA davranışı değişmiyor. */
+function toast(msg){
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(), 2000);
+}
+function backStep(){
+  const open = [...document.querySelectorAll('.overlay.open')].filter(o=>o.id!=='authScreen');
+  if (open.length){
+    const o = open[open.length-1];
+    if (o.id==='ovConfirm') document.getElementById('cCancel').click();
+    else closeSheets();
+    return true;
+  }
+  if (document.getElementById('authScreen').classList.contains('open')) return false;
+  if (currentTab==='detay'){ show('kisiler'); return true }
+  if (currentTab!=='ozet'){ show('ozet'); return true }
+  return false;
+}
+let _exitAt = 0;
+function confirmExit(){
+  if (Date.now()-_exitAt < 2000) return true;
+  _exitAt = Date.now();
+  toast('Çıkmak için tekrar geri tuşuna bas');
+  return false;
+}
+if (window.Capacitor?.isNativePlatform?.()){
+  Capacitor.Plugins.App.addListener('backButton', () => {
+    if (backStep()) return;
+    if (confirmExit()) Capacitor.Plugins.App.exitApp();
+  });
+}
 </script>
 </body>
 </html>
