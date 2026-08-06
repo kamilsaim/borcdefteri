@@ -39,7 +39,15 @@ input,select,textarea{
   padding:12px;width:100%;outline:none;
 }
 input:focus,select:focus{border-color:var(--brass)}
-input[type=date]{color-scheme:dark}
+/* Safari/WebKit tarih alanına içeriğine göre bir asgari genişlik veriyor; bu genişlik
+   kutunun dışına taşıp sheet'i yatayda büyütüyordu. appearance sıfırlanınca alan da
+   diğer girdiler gibi %100'e oturuyor. */
+input[type=date]{
+  color-scheme:dark;-webkit-appearance:none;appearance:none;
+  min-width:0;max-width:100%;
+}
+input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0}
+input[type=date]::-webkit-calendar-picker-indicator{margin:0;opacity:.6}
 label{display:block;font-size:.78rem;color:var(--muted);margin:14px 0 6px;font-weight:600;letter-spacing:.03em}
 ::placeholder{color:#5c6b61}
 
@@ -174,7 +182,7 @@ h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
 
 /* ---------- Alt menü + FAB ---------- */
 nav.tabs{
-  position:fixed;left:0;right:0;bottom:0;z-index:20;
+  position:fixed;left:0;right:0;bottom:var(--vvgap,0px);z-index:20;
   background:rgba(15,21,18,.96);backdrop-filter:blur(8px);
   border-top:1px solid var(--line);
   display:flex;justify-content:space-around;
@@ -187,7 +195,7 @@ nav.tabs button{
 nav.tabs button.on{color:var(--brass)}
 nav.tabs .ic{font-size:1.15rem;line-height:1}
 .fab{
-  position:fixed;right:18px;bottom:calc(86px + env(safe-area-inset-bottom));z-index:21;
+  position:fixed;right:18px;bottom:calc(86px + env(safe-area-inset-bottom) + var(--vvgap,0px));z-index:21;
   width:56px;height:56px;border-radius:18px;background:var(--brass);color:#141109;
   font-size:1.7rem;font-weight:700;box-shadow:0 6px 18px rgba(0,0,0,.45);
   display:flex;align-items:center;justify-content:center;
@@ -203,7 +211,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 .sheet{
   position:relative;
   background:var(--surface);border-radius:20px;width:100%;max-width:480px;
-  max-height:88dvh;overflow-y:auto;padding:8px 18px 20px;
+  max-height:88dvh;overflow-y:auto;overflow-x:hidden;padding:8px 18px 20px;
   border:2px solid var(--brass-dim);animation:up .18s ease;
 }
 .sheet-close{
@@ -1256,6 +1264,29 @@ document.querySelectorAll('[data-quick]').forEach(b => b.onclick = () => {
   if (k==='taksit') openDebtForm('taksit', currentPerson);
   else openPayForm(k, currentPerson);
 });
+
+/* iOS'ta tarayıcının alt araç çubuğu kaydırırken açılıp kapandığı için görünür alanın
+   (visual viewport) altı, fixed elemanların hizalandığı layout viewport'un altından
+   yukarıda kalıyor ve alt menü zıplıyor. Aradaki farkı --vvgap'e yazıp telafi ediyoruz.
+   Klavye açıkken (fark büyük) menüyü klavyenin üstüne taşımamak için yok sayıyoruz. */
+(function syncViewportGap(){
+  const vv = window.visualViewport;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!vv || !isIOS || window.Capacitor) return;
+  let queued = false;
+  const apply = () => {
+    queued = false;
+    const gap = window.innerHeight - (vv.height + vv.offsetTop);
+    const v = (gap > 0 && gap < 150) ? Math.round(gap) : 0;
+    document.documentElement.style.setProperty('--vvgap', v + 'px');
+  };
+  const onChange = () => { if (!queued) { queued = true; requestAnimationFrame(apply) } };
+  vv.addEventListener('resize', onChange);
+  vv.addEventListener('scroll', onChange);
+  window.addEventListener('scroll', onChange, { passive:true });
+  apply();
+})();
 
 /* Sekmeler */
 document.querySelectorAll('nav.tabs button').forEach(b => b.onclick = () => show(b.dataset.tab));
