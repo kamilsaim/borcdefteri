@@ -509,6 +509,9 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: { flowType: 'implicit' }
 });
 
+const mapDebtRow = r => ({ id:r.id, personId:r.person_id, kind:r.kind, amount:Number(r.amount), date:r.date, desc:r.aciklama||'', count:r.count, firstDue:r.first_due, owe:!!r.owe, cardId:r.card_id||null, createdBy:r.created_by||null, approved:r.approved !== false });
+const mapPayRow  = r => ({ id:r.id, personId:r.person_id, amount:Number(r.amount), date:r.date, dir:r.dir, note:r.note||'', createdBy:r.created_by||null, approved:r.approved !== false });
+
 const Store = {
   key: 'borcdefteri_v1',
   _lastSynced: null,
@@ -541,8 +544,8 @@ const Store = {
       const remote = {
         settings: ay.data ? { cutoffDay: ay.data.cutoff_day, payDay: ay.data.pay_day } : { cutoffDay:23, payDay:1 },
         people: pe.data.map(r => ({ id:r.id, name:r.ad, sortOrder:r.sort_order })),
-        debts: de.data.map(r => ({ id:r.id, personId:r.person_id, kind:r.kind, amount:Number(r.amount), date:r.date, desc:r.aciklama||'', count:r.count, firstDue:r.first_due, owe:!!r.owe, cardId:r.card_id||null })),
-        payments: pa.data.map(r => ({ id:r.id, personId:r.person_id, amount:Number(r.amount), date:r.date, dir:r.dir, note:r.note||'' })),
+        debts: de.data.map(mapDebtRow),
+        payments: pa.data.map(mapPayRow),
         cards: ca.data.map(r => ({ id:r.id, name:r.ad, cutoffDay:r.cutoff_day, payDay:r.pay_day, isDefault:!!r.is_default })),
       };
       this._lastSynced = JSON.parse(JSON.stringify(remote));
@@ -625,6 +628,78 @@ const Store = {
     if (this._channel){ sb.removeChannel(this._channel); this._channel = null }
   }
 };
+
+/* Paylasilan hesaplar ayri bir katmandan gelir: Store.save()'in "uzakta var,
+   state'te yok -> sil" diff dongusune girerlerse karsi tarafin verisi silinir. */
+const SharedStore = {
+  _uid: null,
+  _email: null,
+  _channel: null,
+
+  async load(){
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) return { shares: [], sharedAccounts: [] };
+    this._uid = user.id;
+    this._email = (user.email || '').toLowerCase();
+
+    const { data: rows, error } = await sb.from('borc_shares')
+      .select('*')
+      .or(`owner_id.eq.${user.id},invitee_id.eq.${user.id},invitee_email.eq.${this._email}`);
+    if (error) throw error;
+
+    const shares = rows.map(r => ({
+      id: r.id, ownerId: r.owner_id, personId: r.person_id,
+      inviteeEmail: r.invitee_email, inviteeId: r.invitee_id,
+      role: r.role, status: r.status
+    }));
+
+    const incoming = shares.filter(s => s.ownerId !== user.id && s.status === 'accepted');
+    const personIds = incoming.map(s => s.personId);
+    let sharedAccounts = [];
+    if (personIds.length){
+      const [pe, de, pa] = await Promise.all([
+        sb.from('borc_people').select('*').in('id', personIds),
+        sb.from('borc_debts').select('*').in('person_id', personIds),
+        sb.from('borc_payments').select('*').in('person_id', personIds),
+      ]);
+      const err = pe.error || de.error || pa.error;
+      if (err) throw err;
+      sharedAccounts = incoming.map(s => {
+        const person = pe.data.find(r => r.id === s.personId);
+        return {
+          shareId: s.id, personId: s.personId, role: s.role, ownerId: s.ownerId,
+          ownerLabel: person ? person.ad : 'Paylaşılan hesap',
+          debts: de.data.filter(r => r.person_id === s.personId).map(mapDebtRow),
+          payments: pa.data.filter(r => r.person_id === s.personId).map(mapPayRow),
+        };
+      }).filter(a => pe.data.some(r => r.id === a.personId)); // silinmis kisi kartlarini ele
+    }
+    return { shares, sharedAccounts };
+  },
+
+  pendingInvites(){
+    return state.shares.filter(s =>
+      s.status === 'pending' &&
+      s.ownerId !== this._uid &&
+      (s.inviteeId === this._uid || s.inviteeEmail === this._email));
+  },
+
+  outgoing(){
+    return state.shares.filter(s => s.ownerId === this._uid && s.status !== 'revoked');
+  },
+
+  _subscribeRealtime(onChange){
+    if (this._channel) return;
+    this._channel = sb.channel('borc-shares')
+      .on('postgres_changes', { event:'*', schema:'public', table:'borc_shares' }, onChange)
+      .subscribe();
+  },
+
+  _unsubscribe(){
+    if (this._channel){ sb.removeChannel(this._channel); this._channel = null }
+  }
+};
+
 window.addEventListener('online', () => {
   if (Store._pending) Store._push(Store._pending);
   else if (Store.status === 'offline' && Store._uid) reloadFromRemote();
@@ -634,8 +709,11 @@ let state = {
   settings: { cutoffDay: 23, payDay: 1 },
   people: [],   // {id, name}
   debts: [],    // {id, personId, kind:'cash_out'|'cash_in'|'installment', amount, date, desc, count, firstDue, cardId}
-  payments: [], // {id, personId, amount, date, dir:'in'|'out', note}
-  cards: []     // {id, name, cutoffDay, payDay, isDefault}
+  payments: [], // {id, personId, amount, date, dir:'in'|'out', note, createdBy, approved}
+  cards: [],    // {id, name, cutoffDay, payDay, isDefault}
+  // Paylasilan Hesaplar: bu iki dal Store.save()'in diff dongusune ASLA girmez
+  shares: [],         // {id, ownerId, personId, inviteeEmail, inviteeId, role, status}
+  sharedAccounts: []  // {shareId, personId, role, ownerId, ownerLabel, debts:[], payments:[]}
 };
 
 const uid = () => crypto.randomUUID();
@@ -725,6 +803,30 @@ function personBalance(personId, ds = state){
   return { alacak: Math.max(0,Math.round(alacak*100)/100), borc: Math.max(0,Math.round(borc*100)/100),
            creditR: r.credit, creditP: p.credit };
 }
+/* Aynalama yalnizca sunum katmanindadir: veritabaninda hicbir yon ters cevrilmez.
+   Sahipte 'recv' (bana borclu) olan, davetlide 'pay' (ben borcluyum) olarak gorunur. */
+const mirrorSide = side => side === 'recv' ? 'pay' : 'recv';
+const mirrorDir  = dir  => dir  === 'in'   ? 'out'  : 'in';
+
+const sharedAccount = shareId => state.sharedAccounts.find(a => a.shareId === shareId) || null;
+
+function sharedBalance(acc){
+  const b = personBalance(acc.personId, acc);
+  return { alacak: b.borc, borc: b.alacak };
+}
+
+function sharedMonthDue(acc, ym){
+  return -personMonthDue(acc.personId, ym, acc);
+}
+
+const ROLE_LABEL = { viewer:'Görüntüleyen', contributor:'Katılımcı', full:'Tam yetki' };
+const canAddPayment = role => role === 'contributor' || role === 'full';
+const canAddDebt    = role => role === 'full';
+function canEditPayment(acc, pay){
+  if (acc.role === 'full') return true;
+  return acc.role === 'contributor' && pay.createdBy === SharedStore._uid;
+}
+
 const personName = id => (state.people.find(p=>p.id===id)||{name:'?'}).name;
 function migrateCards(){
   if (state.cards && state.cards.length) return false;
