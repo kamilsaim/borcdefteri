@@ -145,6 +145,20 @@ h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
 .mchip b{font-weight:700;margin-right:3px}
 .mchip .pos{color:var(--alacak)} .mchip .neg{color:var(--borc)} .mchip .mut{color:var(--muted)}
 
+/* ---------- Paylaşılan hesaplar ---------- */
+.tabbadge{position:absolute;top:2px;right:calc(50% - 20px);min-width:16px;height:16px;
+  border-radius:8px;background:var(--borc);color:#fff;font-size:.62rem;line-height:16px;
+  text-align:center;padding:0 4px;font-weight:700}
+.shrow{display:flex;align-items:center;gap:10px;padding:12px;border-bottom:1px solid var(--line)}
+.shrow:last-child{border-bottom:none}
+.shrow .who{min-width:0;flex:1}
+/* .ghost ve select varsayilan olarak width:100% — satir icinde daraltiliyor */
+.shrow .ghost{width:auto;margin-top:0;padding:8px 12px;font-size:.78rem;flex:0 0 auto;white-space:nowrap}
+.shrow select{width:auto;flex:0 0 auto;padding:6px 8px;font-size:.78rem}
+.shrow button{flex:0 0 auto}
+.rolechip{font-size:.66rem;padding:2px 7px;border-radius:999px;background:var(--line);color:var(--muted);font-weight:600}
+.unapproved{width:7px;height:7px;border-radius:50%;background:#E8A33D;display:inline-block;margin-right:5px}
+
 /* ---------- Kişi detay ---------- */
 .detailhead{display:flex;align-items:center;gap:10px;margin-top:6px}
 .back{font-size:1.5rem;color:var(--brass);padding:4px 10px 4px 0}
@@ -198,6 +212,7 @@ nav.tabs::after{
   background:rgba(15,21,18,.96);
 }
 nav.tabs button{
+  position:relative;
   flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;
   font-size:.64rem;font-weight:700;color:var(--muted);padding:4px 0;letter-spacing:.03em;
 }
@@ -355,6 +370,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <button class="abtn al" data-quick="in">₺ Para Aldım</button>
       <button class="abtn ver" data-quick="out">₺ Para Verdim</button>
       <button class="abtn tk" data-quick="taksit">＋ Kart Taksit</button>
+      <button class="abtn" id="btnShare">⇄ Paylaş</button>
     </div>
     <h2 class="sec">Borçlar & Taksitler</h2>
     <div class="card" id="dDebts"></div>
@@ -362,6 +378,28 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <div class="card" id="dDebtsTek"></div>
     <h2 class="sec">Ödeme Geçmişi</h2>
     <div class="card" id="dPays"></div>
+  </section>
+
+  <!-- PAYLAŞILAN HESAPLAR -->
+  <section class="view" id="view-paylasilan">
+    <div id="listDavet" style="margin-top:14px"></div>
+    <div id="listPaylasilan"></div>
+  </section>
+
+  <!-- PAYLAŞILAN HESAP DETAY -->
+  <section class="view" id="view-shared">
+    <div class="detailhead">
+      <button class="back" id="btnSharedBack">‹</button>
+      <h3 id="sName"></h3>
+      <button class="del" id="btnLeaveShare">⨯</button>
+    </div>
+    <div class="balance" id="sBalance"></div>
+    <div class="balnote" id="sBalNote"></div>
+    <div class="actionrow" id="sActions"></div>
+    <h2 class="sec">Borçlar &amp; Taksitler</h2>
+    <div class="card" id="sDebts"></div>
+    <h2 class="sec">Ödeme Geçmişi</h2>
+    <div class="card" id="sPays"></div>
   </section>
 
   <!-- AYARLAR -->
@@ -380,6 +418,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <button class="ghost" id="btnLogout" style="color:var(--borc)">Çıkış yap</button>
     <button class="ghost" id="btnDeleteAccount" style="color:var(--borc)">Hesabımı sil</button>
     <div class="hint">Bu işlem hesabınızı ve tüm borç/alacak kayıtlarınızı kalıcı olarak siler. <a href="gizlilik-politikasi.html" style="color:var(--muted)">Gizlilik politikası</a></div>
+    <h2 class="sec">Paylaşımlarım</h2>
+    <div class="card" id="listShares"></div>
     <h2 class="sec">Kart Ayarları</h2>
     <div class="card" id="listCards"></div>
     <button class="ghost" id="btnAddCard">＋ Kart Ekle</button>
@@ -399,6 +439,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
   <button data-tab="ozet" class="on"><span class="ic">▤</span>Özet</button>
   <button data-tab="aylik"><span class="ic">▦</span>Aylık</button>
   <button data-tab="kisiler"><span class="ic">☰</span>Kişiler</button>
+  <button data-tab="paylasilan"><span class="ic">⇄</span>Ortak<span class="tabbadge" id="tabBadge" style="display:none"></span></button>
   <button data-tab="ayarlar"><span class="ic">⚙</span>Ayarlar</button>
 </nav>
 
@@ -416,22 +457,62 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
   </div>
 </div>
 
+<!-- PAYLAŞIM -->
+<div class="overlay" id="ovShare">
+  <div class="sheet">
+    <button class="sheet-close" data-close>×</button>
+    <div class="grip"></div>
+    <h3 id="shareTitle">Hesabı Paylaş</h3>
+    <label>E-posta adresi</label>
+    <input type="email" id="fShareEmail" placeholder="ornek@gmail.com" autocomplete="off">
+    <label>Yetki</label>
+    <select id="fShareRole">
+      <option value="viewer">Görüntüleyen — sadece görür</option>
+      <option value="contributor" selected>Katılımcı — ödeme ekleyebilir</option>
+      <option value="full">Tam yetki — her şeyi düzenleyebilir</option>
+    </select>
+    <div class="hint" id="shareHint" style="margin-top:10px"></div>
+    <button id="fShareSave">Paylaş</button>
+    <div id="shareInviteBox" style="display:none;margin-top:14px">
+      <label>Davet mesajı</label>
+      <div class="card" style="padding:10px;font-size:.82rem" id="shareInviteText"></div>
+      <button class="ghost" id="btnCopyInvite">Mesajı kopyala</button>
+    </div>
+  </div>
+</div>
+
+<!-- PAYLAŞILAN HESABA ÖDEME -->
+<div class="overlay" id="ovSharedPay">
+  <div class="sheet">
+    <button class="sheet-close" data-close>×</button>
+    <div class="grip"></div>
+    <h3 id="sharedPayTitle">Ödeme</h3>
+    <label>Tutar</label>
+    <input type="number" id="fSharedPayAmount" inputmode="decimal" placeholder="0">
+    <label>Tarih</label>
+    <input type="date" id="fSharedPayDate">
+    <label>Not</label>
+    <input type="text" id="fSharedPayNote" placeholder="(isteğe bağlı)">
+    <div class="hint">Bu kayıt karşı tarafta "onay bekliyor" işaretiyle görünür.</div>
+    <button id="fSharedPaySave">Kaydet</button>
+    <button class="ghost" id="fSharedPayDelete" style="color:var(--borc);display:none">Bu kaydı sil</button>
+  </div>
+</div>
+
 <!-- BORÇ FORMU (nakit + taksit) -->
 <div class="overlay" id="ovDebt">
   <div class="sheet">
     <button class="sheet-close" data-close>×</button>
     <div class="grip"></div>
     <h3 id="fDebtTitle">Kayıt</h3>
-    <label>Kişi</label>
-    <select id="fDebtPerson"></select>
+    <div id="fDebtPersonWrap"><label>Kişi</label><select id="fDebtPerson"></select></div>
     <div id="fNewPersonWrap" style="display:none"><label>Yeni kişi adı</label><input id="fNewPerson" placeholder="Örn. Ahmet Yılmaz"></div>
     <label>Açıklama</label>
     <input id="fDebtDesc" placeholder="Örn. Telefon alışverişi">
     <label>Toplam tutar (₺)</label>
     <input id="fDebtAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0">
     <div id="fTaksitWrap">
-      <label>Kart</label>
-      <select id="fDebtCard"></select>
+      <div id="fDebtCardWrap"><label>Kart</label><select id="fDebtCard"></select></div>
       <label>Taksit sayısı</label>
       <select id="fDebtCount"></select>
       <label>Alışveriş tarihi</label>
@@ -503,6 +584,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
    VERİ KATMANI — Supabase (beebook projesi, borc_ önekli tablolar)
    Yerel önbellek + offline kuyruk + realtime senkron.
 ===================================================== */
+// Play Store yayina girince buradaki link magaza adresiyle degistirilir.
+const APP_LINK = 'https://kamilsaim.github.io/borcdefteri/';
 const SUPABASE_URL = 'https://pdxnpnlwrtswwifevlil.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_GL8MYellfvYl3sz76ZOKVw_n4JbUe4Y';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
@@ -574,8 +657,8 @@ const Store = {
       const prev = this._lastSynced || { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
       await this._syncTable('borc_cards', prev.cards, s.cards, r => ({ id:r.id, user_id:this._uid, ad:r.name, cutoff_day:r.cutoffDay, pay_day:r.payDay, is_default:!!r.isDefault }));
       await this._syncTable('borc_people', prev.people, s.people, r => ({ id:r.id, user_id:this._uid, ad:r.name, sort_order:r.sortOrder }));
-      await this._syncTable('borc_debts', prev.debts, s.debts, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, kind:r.kind, amount:r.amount, date:r.date, aciklama:r.desc||null, count:r.count ?? null, first_due:r.firstDue ?? null, owe:!!r.owe, card_id:r.cardId||null }));
-      await this._syncTable('borc_payments', prev.payments, s.payments, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, amount:r.amount, date:r.date, dir:r.dir, note:r.note||null }));
+      await this._syncTable('borc_debts', prev.debts, s.debts, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, kind:r.kind, amount:r.amount, date:r.date, aciklama:r.desc||null, count:r.count ?? null, first_due:r.firstDue ?? null, owe:!!r.owe, card_id:r.cardId||null, created_by:r.createdBy ?? null, approved:r.approved !== false }));
+      await this._syncTable('borc_payments', prev.payments, s.payments, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, amount:r.amount, date:r.date, dir:r.dir, note:r.note||null, created_by:r.createdBy ?? null, approved:r.approved !== false }));
       if (JSON.stringify(prev.settings) !== JSON.stringify(s.settings)){
         const { error } = await sb.from('borc_ayarlar').upsert({ user_id:this._uid, cutoff_day:s.settings.cutoffDay, pay_day:s.settings.payDay, updated_at:new Date().toISOString() });
         if (error) throw error;
@@ -858,6 +941,10 @@ function render(){
   if (currentTab==='aylik') renderAylik();
   if (currentTab==='kisiler') renderKisiler();
   if (currentTab==='detay') renderDetay();
+  if (currentTab==='paylasilan') renderPaylasilan();
+  if (currentTab==='shared') renderSharedDetay();
+  if (currentTab==='ayarlar') renderShareList();
+  renderShareBadge();
 }
 
 function rowHTML({name, desc, amount, cls, chip}){
@@ -1007,6 +1094,62 @@ function renderKisiler(){
     currentPerson = el.dataset.person; show('detay');
   });
   wireKisiDrag(wrap);
+}
+
+let currentShare = null;
+
+function renderShareBadge(){
+  const el = document.getElementById('tabBadge');
+  if (!el) return;
+  const n = SharedStore.pendingInvites().length;
+  el.textContent = n;
+  el.style.display = n ? '' : 'none';
+}
+
+function renderPaylasilan(){
+  const dv = document.getElementById('listDavet');
+  const invites = SharedStore.pendingInvites();
+  dv.innerHTML = invites.length ? '<h2 class="sec">Gelen Davetler</h2><div class="card">' + invites.map(s => `
+    <div class="shrow">
+      <div class="who" style="flex:1">
+        <div class="n" style="font-weight:700">Bir hesap seninle paylaşıldı</div>
+        <div class="d" style="font-size:.76rem;color:var(--muted)">Yetki: ${ROLE_LABEL[s.role]}</div>
+      </div>
+      <button class="ghost" data-accept="${s.id}" style="padding:6px 10px;margin:0">Kabul et</button>
+      <button class="ghost" data-reject="${s.id}" style="padding:6px 10px;margin:0;color:var(--borc)">Reddet</button>
+    </div>`).join('') + '</div>' : '';
+
+  const wrap = document.getElementById('listPaylasilan');
+  const accs = state.sharedAccounts;
+  if (!accs.length){
+    wrap.innerHTML = invites.length ? '' :
+      '<div class="empty">Paylaşılan hesap yok.<br>Bir kişi seni davet ettiğinde burada görünür.</div>';
+  } else {
+    const months = nextMonths(3);
+    wrap.innerHTML = '<h2 class="sec">Paylaşılan Hesaplar</h2>' + accs.map(a => {
+      const b = sharedBalance(a);
+      const net = b.alacak - b.borc;
+      const chips = months.map(mo => {
+        const due = sharedMonthDue(a, mo.ym);
+        const cls = due>0?'pos':due<0?'neg':'mut';
+        return `<span class="mchip"><b>${mo.label}</b> <span class="${cls}">${due===0?'—':(due>0?'+':'−')+TL(Math.abs(due))}</span></span>`;
+      }).join('');
+      return `<div class="person" data-share="${a.shareId}">
+        <div class="avatar">${a.ownerLabel.trim()[0].toUpperCase()}</div>
+        <div class="who" style="flex:1">
+          <div class="n" style="font-weight:800">${a.ownerLabel} <span class="rolechip">${ROLE_LABEL[a.role]}</span></div>
+          <div class="d" style="font-size:.76rem;color:var(--muted)">${b.alacak?`Alacak ${TL(b.alacak)}`:''}${b.alacak&&b.borc?' · ':''}${b.borc?`Borç ${TL(b.borc)}`:''}${!b.alacak&&!b.borc?'Hesap kapalı':''}</div>
+          <div class="monthdue">${chips}</div>
+        </div>
+        <div class="amt ${net>0?'pos':net<0?'neg':'mut'}">${net>0?'+':net<0?'−':''}${TL(Math.abs(net))}</div>
+      </div>`;
+    }).join('');
+    wrap.querySelectorAll('[data-share]').forEach(el => el.onclick = () => {
+      currentShare = el.dataset.share; show('shared');
+    });
+  }
+  dv.querySelectorAll('[data-accept]').forEach(b => b.onclick = () => respondInvite(b.dataset.accept, true));
+  dv.querySelectorAll('[data-reject]').forEach(b => b.onclick = () => respondInvite(b.dataset.reject, false));
 }
 
 const kisiDrag = { active:null, justDragged:false };
@@ -1171,9 +1314,10 @@ function renderDetay(){
   const pays = state.payments.filter(x=>x.personId===p.id).sort((a,b)=>a.date<b.date?1:-1);
   document.getElementById('dPays').innerHTML = pays.length ? pays.map(x => `
     <div class="row">
-      <div class="who"><div class="n" style="font-weight:600;font-size:.86rem">${x.dir==='in'?'Tahsilat':'Ödeme'}</div>
-      <div class="d">${fmtDate(x.date)}${x.note?` · ${x.note}`:''}</div></div>
+      <div class="who"><div class="n" style="font-weight:600;font-size:.86rem">${x.approved===false?'<span class="unapproved"></span>':''}${x.dir==='in'?'Tahsilat':'Ödeme'}</div>
+      <div class="d">${fmtDate(x.date)}${x.note?` · ${x.note}`:''}${x.createdBy && x.createdBy!==Store._uid?' · karşı taraf ekledi':''}</div></div>
       <div class="amt ${x.dir==='in'?'pos':'neg'}">${x.dir==='in'?'+':'−'}${TL(x.amount)}</div>
+      ${x.approved===false?`<button class="edit" data-approvepay="${x.id}">✓</button>`:''}
       <button class="edit" data-editpay="${x.id}">✎</button>
       <button class="del" data-delpay="${x.id}">🗑</button>
     </div>`).join('') : '<div class="empty">Ödeme yok</div>';
@@ -1187,6 +1331,19 @@ function renderDetay(){
     if (!await askConfirm('Bu borç kaydı ve taksit planı silinsin mi?')) return;
     state.debts = state.debts.filter(d=>d.id!==b.dataset.deldebt);
     await Store.save(state); render();
+  });
+  document.querySelectorAll('[data-approvepay]').forEach(b => b.onclick = async () => {
+    const x = state.payments.find(p=>p.id===b.dataset.approvepay);
+    if (!x) return;
+    const { error } = await sb.from('borc_payments').update({ approved:true }).eq('id', x.id);
+    if (error){ alert('Onaylanamadı: ' + error.message); return }
+    x.approved = true;
+    Store._writeLocal(state);
+    if (Store._lastSynced){
+      const t = Store._lastSynced.payments.find(p=>p.id===x.id);
+      if (t) t.approved = true;
+    }
+    render();
   });
   document.querySelectorAll('[data-editpay]').forEach(b => b.onclick = () => {
     const x = state.payments.find(p=>p.id===b.dataset.editpay);
@@ -1203,7 +1360,10 @@ function renderDetay(){
 /* =================== FORMLAR =================== */
 const ov = id => document.getElementById(id);
 function openSheet(id){ ov(id).classList.add('open') }
-function closeSheets(){ document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open')) }
+function closeSheets(){
+  document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open'));
+  sharedDebtCtx = null;
+}
 document.querySelectorAll('.sheet-close').forEach(b => b.onclick = closeSheets);
 document.querySelectorAll('.overlay').forEach(o => {
   if (o.id==='authScreen') return;
@@ -1246,6 +1406,7 @@ function toggleNewPerson(sel){
 let debtKind = 'taksit';
 let debtOwe = false;
 let editingDebtId = null;
+let sharedDebtCtx = null;  // dolu ise borc, paylasilan hesabin sahibine yazilir
 function openDebtForm(kind, personId, existing){
   editingDebtId = existing ? existing.id : null;
   // 'taksit_borc' = başkasının kartıyla taksit (ben borçluyum); form mantığı taksitle aynı, sadece owe bayrağı farklı
@@ -1259,6 +1420,10 @@ function openDebtForm(kind, personId, existing){
   document.getElementById('fCashDateWrap').style.display = kind==='taksit' ? 'none' : 'block';
   fillPersonSelect(document.getElementById('fDebtPerson'), existing ? existing.personId : personId);
   document.getElementById('fDebtPerson').disabled = !!existing;
+  // Paylasilan hesaba borc eklenirken kisi sabit, kart bilgisi sahibe ait ve paylasima kapali.
+  const sharedMode = !!sharedDebtCtx && !personId && !existing;
+  document.getElementById('fDebtPersonWrap').style.display = sharedMode ? 'none' : '';
+  document.getElementById('fDebtCardWrap').style.display = sharedMode ? 'none' : '';
   document.getElementById('fDebtDesc').value = existing ? (existing.desc||'') : '';
   document.getElementById('fDebtAmount').value = existing ? existing.amount : '';
   document.getElementById('fNewPerson').value = '';
@@ -1274,6 +1439,8 @@ function openDebtForm(kind, personId, existing){
 }
 function updatePreview(){
   if (debtKind!=='taksit') return;
+  // Paylasilan hesapta kart sahibe ait; kendi kartimin tarihiyle yaniltici onizleme gostermeyelim.
+  if (sharedDebtCtx){ document.getElementById('fPreview').textContent = ''; return }
   const card = state.cards.find(c=>c.id===document.getElementById('fDebtCard').value) || state.cards[0];
   if (!card) return;
   const dateV = document.getElementById('fDebtDate').value || todayISO();
@@ -1303,6 +1470,27 @@ async function resolvePerson(sel, newInput){
 }
 
 document.getElementById('fDebtSave').onclick = async () => {
+  if (sharedDebtCtx){
+    const acc = sharedDebtCtx;
+    const amount = Number(document.getElementById('fDebtAmount').value);
+    if (!amount || amount<=0){ alert('Geçerli bir tutar girin'); return }
+    const date = document.getElementById('fDebtDate').value || todayISO();
+    const count = Number(document.getElementById('fDebtCount').value) || 1;
+    const desc = document.getElementById('fDebtDesc').value.trim();
+    // Kart bilgisi sahibe ait ve paylasima kapali; ilk vade alis tarihinden hesaplanir.
+    const { error } = await sb.from('borc_debts').insert({
+      id: uid(), user_id: acc.ownerId, person_id: acc.personId,
+      kind: 'installment', amount, date, aciklama: desc || null,
+      count, first_due: date, owe: false, card_id: null,
+      created_by: SharedStore._uid, approved: false
+    });
+    sharedDebtCtx = null;
+    if (error){ alert('Kaydedilemedi: ' + error.message); return }
+    closeSheets();
+    await reloadShared();
+    render();
+    return;
+  }
   const pid = await resolvePerson(document.getElementById('fDebtPerson'), document.getElementById('fNewPerson'));
   if (!pid) return;
   const amount = Number(document.getElementById('fDebtAmount').value);
@@ -1324,7 +1512,7 @@ document.getElementById('fDebtSave').onclick = async () => {
     if (i>-1) state.debts[i] = { ...state.debts[i], ...payload };
     editingDebtId = null;
   } else {
-    state.debts.push({ id:uid(), personId:pid, ...payload });
+    state.debts.push({ id:uid(), personId:pid, ...payload, createdBy:null, approved:true });
   }
   await Store.save(state); closeSheets(); render();
 };
@@ -1363,9 +1551,192 @@ document.getElementById('fPaySave').onclick = async () => {
     if (i>-1) state.payments[i] = { ...state.payments[i], ...payload };
     editingPayId = null;
   } else {
-    state.payments.push({ id:uid(), personId:pid, ...payload });
+    state.payments.push({ id:uid(), personId:pid, ...payload, createdBy:null, approved:true });
   }
   await Store.save(state); closeSheets(); render();
+};
+
+/* ---- Paylaşım ---- */
+document.getElementById('btnShare').onclick = () => {
+  const p = state.people.find(x => x.id === currentPerson);
+  if (!p) return;
+  document.getElementById('shareTitle').textContent = `"${p.name}" hesabını paylaş`;
+  document.getElementById('fShareEmail').value = '';
+  document.getElementById('fShareRole').value = 'contributor';
+  document.getElementById('shareInviteBox').style.display = 'none';
+  const mine = SharedStore.outgoing().filter(s => s.personId === p.id);
+  document.getElementById('shareHint').textContent = mine.length
+    ? 'Mevcut paylaşımlar: ' + mine.map(s => `${s.inviteeEmail} (${ROLE_LABEL[s.role]}${s.status==='pending'?', bekliyor':''})`).join(', ')
+    : 'Karşı taraf daveti kabul edene kadar hiçbir veri görünmez.';
+  openSheet('ovShare');
+};
+
+document.getElementById('fShareSave').onclick = async () => {
+  const email = document.getElementById('fShareEmail').value.trim().toLowerCase();
+  const role = document.getElementById('fShareRole').value;
+  const p = state.people.find(x => x.id === currentPerson);
+  if (!p) return;
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){ alert('Geçerli bir e-posta adresi girin.'); return }
+  if (email === SharedStore._email){ alert('Hesabı kendinizle paylaşamazsınız.'); return }
+
+  const { error } = await sb.from('borc_shares').upsert({
+    owner_id: SharedStore._uid, person_id: p.id, invitee_email: email, role, status: 'pending'
+  }, { onConflict: 'owner_id,person_id,invitee_email' });
+  if (error){ alert('Paylaşım kurulamadı: ' + error.message); return }
+
+  await reloadShared();
+  const myName = SharedStore._email || 'Bir kullanıcı';
+  const text = `${myName} seninle Borç Defteri'nde bir hesap paylaştı. Uygulamayı aç ve aynı e-posta (${email}) ile giriş yap: ${APP_LINK}`;
+  document.getElementById('shareInviteText').textContent = text;
+  document.getElementById('shareInviteBox').style.display = '';
+  document.getElementById('btnCopyInvite').onclick = async () => {
+    try { await navigator.clipboard.writeText(text); alert('Mesaj kopyalandı.') }
+    catch { alert('Kopyalanamadı, metni elle seçip kopyalayın.') }
+  };
+  render();
+};
+
+async function respondInvite(shareId, accept){
+  if (!accept && !await askConfirm('Bu davet reddedilsin mi?')) return;
+  const patch = accept
+    ? { status: 'accepted', invitee_id: SharedStore._uid }
+    : { status: 'revoked' };
+  const { error } = await sb.from('borc_shares').update(patch).eq('id', shareId);
+  if (error){ alert('İşlem yapılamadı: ' + error.message); return }
+  await reloadShared();
+  render();
+}
+
+async function leaveShare(shareId){
+  if (!await askConfirm('Bu paylaşımdan çıkılsın mı? Hesap listenden kaldırılır.')) return;
+  const { error } = await sb.from('borc_shares').update({ status: 'revoked' }).eq('id', shareId);
+  if (error){ alert('Çıkılamadı: ' + error.message); return }
+  currentShare = null;
+  await reloadShared();
+  show('paylasilan');
+}
+
+document.getElementById('btnSharedBack').onclick = () => { currentShare = null; show('paylasilan') };
+document.getElementById('btnLeaveShare').onclick = () => { if (currentShare) leaveShare(currentShare) };
+
+function renderSharedDetay(){
+  const acc = sharedAccount(currentShare);
+  if (!acc){ show('paylasilan'); return }
+  document.getElementById('sName').textContent = acc.ownerLabel;
+
+  const b = sharedBalance(acc);
+  const net = b.alacak - b.borc;
+  const bal = document.getElementById('sBalance');
+  bal.textContent = (net>0?'+':net<0?'−':'') + TL(Math.abs(net));
+  bal.className = 'balance ' + (net>0?'pos':net<0?'neg':'mut');
+  document.getElementById('sBalNote').textContent =
+    `Alacak ${TL(b.alacak)} · Borç ${TL(b.borc)} · Yetki: ${ROLE_LABEL[acc.role]}`;
+
+  const act = document.getElementById('sActions');
+  act.innerHTML = [
+    canAddPayment(acc.role) ? '<button class="abtn al" data-sharedpay="in">₺ Para Aldım</button>' : '',
+    canAddPayment(acc.role) ? '<button class="abtn ver" data-sharedpay="out">₺ Para Verdim</button>' : '',
+    canAddDebt(acc.role)    ? '<button class="abtn tk" data-shareddebt="taksit">＋ Kart Taksit</button>' : '',
+  ].join('');
+
+  const ref = todayISO();
+  // Kalem anahtari renderDetay ile ayni: debt.id + '#' + idx
+  const rMap = {}, pMap = {};
+  personItems(acc.personId,'recv',acc).items.forEach(it => rMap[it.debt.id+'#'+it.idx] = it);
+  personItems(acc.personId,'pay',acc).items.forEach(it => pMap[it.debt.id+'#'+it.idx] = it);
+
+  const dEl = document.getElementById('sDebts');
+  const debts = acc.debts.slice().sort((a,b)=>a.date<b.date?1:-1);
+  dEl.innerHTML = debts.length ? debts.map(d => {
+    const map = (d.kind==='cash_in' || d.owe) ? pMap : rMap;
+    const items = schedule(d).map(s => map[d.id+'#'+s.idx]).filter(Boolean);
+    // Aynalama: sahibin 'recv' tarafi bende borc, 'pay' tarafi bende alacak.
+    // Aynalama: sahibin 'cash_out'u bende 'nakit aldim'a karsilik gelir.
+    const kindTxt = d.kind==='installment' ? `💳 ${d.count} Taksit` : d.kind==='cash_out' ? '↙ Nakit Aldım' : '↗ Nakit Verdim';
+    const plan = items.map(it => {
+      const st = itemStatus(it, ref);
+      const tick = st==='odendi' ? '<span class="tick full">✓</span>'
+                 : st==='kismi'  ? '<span class="tick half">◐</span>'
+                 : st==='gecikti'? '<span class="tick late">!</span>'
+                 : '<span class="tick"></span>';
+      const rem = Math.round((it.amount-it.paid)*100)/100;
+      return `<div class="prow">${tick}
+        <span class="pd">${d.kind==='installment'&&d.count>1?(it.idx+1)+'/'+d.count+' · ':''}${fmtShort(it.due)}</span>
+        ${it.paid>0&&rem>0?`<span style="font-size:.72rem;color:var(--muted)">${TL(it.paid)} /</span>`:''}
+        <span class="pa">${TL(it.amount)}</span></div>`;
+    }).join('');
+    return `<div class="debthead">
+        <div class="t">${d.approved===false?'<span class="unapproved"></span>':''}${kindTxt}${d.desc?` · <span style="font-weight:500;color:var(--muted)">${d.desc}</span>`:''}<br><span style="font-weight:400;font-size:.74rem;color:var(--muted)">${fmtDate(d.date)}</span></div>
+        <span class="amt mut" style="font-size:.85rem">${TL(d.amount)}</span>
+      </div><div class="plan">${plan}</div>`;
+  }).join('') : '<div class="empty">Kayıtlı borç yok</div>';
+
+  const pEl = document.getElementById('sPays');
+  const pays = acc.payments.slice().sort((a,b)=>a.date<b.date?1:-1);
+  pEl.innerHTML = pays.length ? pays.map(x => {
+    const md = mirrorDir(x.dir);
+    return `<div class="row">
+      <div class="who"><div class="n" style="font-weight:600;font-size:.86rem">${x.approved===false?'<span class="unapproved"></span>':''}${md==='out'?'Ödedim':'Tahsil ettim'}</div>
+      <div class="d">${fmtDate(x.date)}${x.note?` · ${x.note}`:''}${x.createdBy===SharedStore._uid?' · ben ekledim':''}</div></div>
+      <div class="amt ${md==='out'?'neg':'pos'}">${md==='out'?'−':'+'}${TL(x.amount)}</div>
+      ${canEditPayment(acc, x)?`<button class="edit" data-sharededitpay="${x.id}">✎</button>`:''}
+    </div>`;
+  }).join('') : '<div class="empty">Ödeme yok.</div>';
+
+  act.querySelectorAll('[data-sharedpay]').forEach(btn =>
+    btn.onclick = () => openSharedPayForm(acc, btn.dataset.sharedpay));
+  act.querySelectorAll('[data-shareddebt]').forEach(btn =>
+    btn.onclick = () => { sharedDebtCtx = acc; openDebtForm('taksit', null); });
+  pEl.querySelectorAll('[data-sharededitpay]').forEach(btn =>
+    btn.onclick = () => openSharedPayForm(acc, null, acc.payments.find(p => p.id === btn.dataset.sharededitpay)));
+}
+
+let sharedPayCtx = null;
+
+function openSharedPayForm(acc, dir, existing){
+  sharedPayCtx = { acc, dir: dir || (existing ? mirrorDir(existing.dir) : 'in'), editing: existing || null };
+  document.getElementById('sharedPayTitle').textContent =
+    existing ? 'Ödemeyi Düzenle' : (sharedPayCtx.dir === 'in' ? 'Para Aldım' : 'Para Verdim');
+  document.getElementById('fSharedPayAmount').value = existing ? existing.amount : '';
+  document.getElementById('fSharedPayDate').value = existing ? existing.date : todayISO();
+  document.getElementById('fSharedPayNote').value = existing ? (existing.note || '') : '';
+  document.getElementById('fSharedPayDelete').style.display = existing ? '' : 'none';
+  openSheet('ovSharedPay');
+}
+
+document.getElementById('fSharedPaySave').onclick = async () => {
+  const { acc, dir, editing } = sharedPayCtx;
+  const amount = Number(document.getElementById('fSharedPayAmount').value);
+  if (!amount || amount <= 0){ alert('Geçerli bir tutar girin.'); return }
+  const date = document.getElementById('fSharedPayDate').value || todayISO();
+  const note = document.getElementById('fSharedPayNote').value.trim();
+
+  // Aynalama geri cevriliyor: bende 'in' olan, sahibin defterinde 'out'.
+  const row = {
+    user_id: acc.ownerId,          // sahiplik HER ZAMAN kart sahibinde
+    person_id: acc.personId,
+    amount, date, dir: mirrorDir(dir), note: note || null,
+    created_by: SharedStore._uid,
+    approved: false
+  };
+  const { error } = editing
+    ? await sb.from('borc_payments').update(row).eq('id', editing.id)
+    : await sb.from('borc_payments').insert({ id: uid(), ...row });
+  if (error){ alert('Kaydedilemedi: ' + error.message); return }
+  closeSheets();
+  await reloadShared();
+  render();
+};
+
+document.getElementById('fSharedPayDelete').onclick = async () => {
+  const editing = sharedPayCtx && sharedPayCtx.editing;
+  if (!editing) return;
+  if (!await askConfirm('Bu ödeme kaydı silinsin mi?')) return;
+  const { error } = await sb.from('borc_payments').delete().eq('id', editing.id);
+  if (error){ alert('Silinemedi: ' + error.message); return }
+  closeSheets();
+  await reloadShared();
+  render();
 };
 
 /* Menü */
@@ -1466,6 +1837,43 @@ async function deleteCard(id){
   if (wasDefault && state.cards.length) state.cards[0].isDefault = true;
   await Store.save(state); renderCardList(); fillDebtCardSelect();
 }
+function renderShareList(){
+  const el = document.getElementById('listShares');
+  if (!el) return;
+  const rows = SharedStore.outgoing();
+  if (!rows.length){
+    el.innerHTML = '<div class="empty">Henüz kimseyle paylaşım yapmadınız.</div>';
+    return;
+  }
+  el.innerHTML = rows.map(s => `
+    <div class="shrow">
+      <div class="who" style="flex:1">
+        <div class="n" style="font-weight:700">${personName(s.personId)}</div>
+        <div class="d" style="font-size:.76rem;color:var(--muted)">${s.inviteeEmail}${s.status==='pending'?' · davet bekliyor':''}</div>
+      </div>
+      <select data-sharerole="${s.id}" style="width:auto;margin:0;padding:4px 6px;font-size:.76rem">
+        <option value="viewer"${s.role==='viewer'?' selected':''}>Görüntüleyen</option>
+        <option value="contributor"${s.role==='contributor'?' selected':''}>Katılımcı</option>
+        <option value="full"${s.role==='full'?' selected':''}>Tam yetki</option>
+      </select>
+      <button class="del" data-sharedel="${s.id}">🗑</button>
+    </div>`).join('');
+
+  el.querySelectorAll('[data-sharerole]').forEach(sel => sel.onchange = async () => {
+    const { error } = await sb.from('borc_shares').update({ role: sel.value }).eq('id', sel.dataset.sharerole);
+    if (error){ alert('Yetki değiştirilemedi: ' + error.message); return }
+    await reloadShared();
+    renderShareList();
+  });
+  el.querySelectorAll('[data-sharedel]').forEach(b => b.onclick = async () => {
+    if (!await askConfirm('Bu paylaşım kaldırılsın mı? Karşı taraf hesabı artık göremez.')) return;
+    const { error } = await sb.from('borc_shares').delete().eq('id', b.dataset.sharedel);
+    if (error){ alert('Kaldırılamadı: ' + error.message); return }
+    await reloadShared();
+    renderShareList();
+  });
+}
+
 function renderCardList(){
   const wrap = document.getElementById('listCards');
   if (!wrap) return;
@@ -1512,7 +1920,9 @@ document.getElementById('fileImport').onchange = async e => {
 document.getElementById('btnWipe').onclick = async () => {
   if (!await askConfirm('TÜM veriler silinecek. Emin misiniz?')) return;
   if (!await askConfirm('Son kez soruyorum: geri alınamaz!')) return;
-  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
+  // Paylasilan hesaplar baskasinin verisi; "kendi verilerimi sil" onlari kapsamaz.
+  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[],
+            shares:state.shares, sharedAccounts:state.sharedAccounts };
   migrateCards();
   await Store.save(state); renderCardList(); fillDebtCardSelect(); render();
 };
@@ -1545,8 +1955,9 @@ function showAuthScreen(){
 document.getElementById('btnLogout').onclick = async () => {
   if (!await askConfirm('Çıkış yapılsın mı?')) return;
   Store._unsubscribeRealtime();
+  SharedStore._unsubscribe();
   await sb.auth.signOut();
-  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
+  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[], shares:[], sharedAccounts:[] };
   showAuthScreen();
 };
 
@@ -1563,9 +1974,10 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
     return;
   }
   Store._unsubscribeRealtime();
+  SharedStore._unsubscribe();
   try { localStorage.removeItem(Store.key); } catch {}
   await sb.auth.signOut();
-  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
+  state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[], shares:[], sharedAccounts:[] };
   showAuthScreen();
   // Ayni hesap baska uygulamalarla paylasiliyorsa (bd_/hediye_ vb.) giris kimligi korunur,
   // sadece Borc Defteri verisi silinir; hicbiri yoksa hesap tumuyle silinir.
@@ -1587,6 +1999,7 @@ async function reloadFromRemote(attempt = 0){
   if (Store.status === 'synced'){
     applyLoaded(loaded);
     renderCardList();
+    renderShareList();
     fillDebtCardSelect();
     render();
     return;
@@ -1600,13 +2013,32 @@ async function bootApp(){
   const migratedCards = migrateCards();
   const migratedOrder = migratePeopleOrder();
   if (migratedCards || migratedOrder) await Store.save(state);
+  await reloadShared();
   renderCardList();
+  renderShareList();
   fillDebtCardSelect();
   renderSyncStatus();
   renderAccountEmail();
   showApp();
   show(currentTab);
   if (Store.status !== 'synced') reloadFromRemote();
+}
+
+async function reloadShared(){
+  try {
+    const s = await SharedStore.load();
+    state.shares = s.shares;
+    state.sharedAccounts = s.sharedAccounts;
+  } catch (e) {
+    // Cevrimdisi: localStorage'dan gelen son bilinen paylasim verisi salt-okunur kalir.
+  }
+  SharedStore._subscribeRealtime(async () => {
+    const s = await SharedStore.load().catch(() => null);
+    if (!s) return;
+    state.shares = s.shares;
+    state.sharedAccounts = s.sharedAccounts;
+    render();
+  });
 }
 
 async function renderAccountEmail(){
