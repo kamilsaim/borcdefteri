@@ -9,7 +9,7 @@
 Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 ödemeleri tek bir dosyada takip edin — hepsi cihazınızda, isteğe bağlı bulut yedeğiyle.
 
-![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.6.2-2E7D5B)
+![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.7.0-2E7D5B)
 ![Platform](https://img.shields.io/badge/platform-Web%20%C2%B7%20PWA-2E7D5B)
 ![Yapı](https://img.shields.io/badge/yap%C4%B1-tek%20dosya%20HTML-0F1512)
 
@@ -34,6 +34,13 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 ### 👥 Kişiler
 - Her kişi kartında bu ay + sonraki **2 ay için ödeme tahmini** küçük etiketler halinde
 - Kişi detayında borçlar "Borçlar & Taksitler" ve "Tek Çekimler" olarak ayrılır, tam plan dökümüyle
+
+### ⇄ Paylaşılan Hesaplar
+- Bir kişi kartını **o kişinin kendi hesabıyla paylaşın** — karşı taraf hesabı kendi perspektifinden (**aynalanmış**) görür
+- Üç kademeli yetki: **Görüntüleyen** (sadece görür) · **Katılımcı** (ödeme ekler, kendi eklediğini düzenler) · **Tam yetki** (borç ve ödeme ekler, düzenler)
+- **Davet + kabul**: karşı taraf kabul edene kadar hiçbir veri görünmez; hazır davet mesajı WhatsApp'tan gönderilebilir
+- Karşı tarafın eklediği kayıtlar **"onay bekliyor"** işaretiyle görünür, tek dokunuşla onaylanır
+- Paylaşılan hesaplar isteğe bağlı olarak genel toplamlara dahil edilebilir (varsayılan kapalı)
 
 ### ☁️ Bulut Yedekleme (isteğe bağlı)
 - **Google ile giriş** yaparak verilerinizi Supabase üzerinde yedekleyin
@@ -75,6 +82,7 @@ bu adım hiç devreye girmez.
 
 | Sürüm | Yenilikler |
 |---|---|
+| **v1.7.0** | **Paylaşılan Hesaplar**: kişi kartını başka bir kullanıcıyla paylaşma, üç kademeli yetki, onay bekleyen kayıt işareti |
 | **v1.6.2** | Tek çekimler tek bir "Tek Çekim" başlığı altında liste halinde gruplandı |
 | **v1.6.1** | Yakınlaştırma kapatıldı, tek çekim görünümü taksit planıyla birleştirildi, + butonu/son satır çakışması düzeltildi |
 | **v1.6.0** | Başkasının kartıyla taksit: arkadaşının kartıyla yapılan taksitli alışverişi kırmızı borç olarak ekleme |
