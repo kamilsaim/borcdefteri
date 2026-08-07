@@ -682,9 +682,9 @@ function schedule(debt){
 /* ---- FIFO ödeme dağıtımı ----
    Kişinin ilgili yöndeki tüm açık kalemleri vade sırasına dizilir,
    ödemeler tarih sırasıyla en eskiden düşülür. Kısmi kalan devreder. */
-function personItems(personId, side){ // side 'recv' (bana borçlu) | 'pay' (ben borçluyum)
+function personItems(personId, side, ds = state){ // side 'recv' (bana borçlu) | 'pay' (ben borçluyum)
   const items = [];
-  state.debts.filter(d => {
+  ds.debts.filter(d => {
     if (d.personId !== personId) return false;
     if (side === 'recv') return d.kind==='cash_out' || (d.kind==='installment' && !d.owe);
     return d.kind==='cash_in' || (d.kind==='installment' && d.owe);
@@ -693,8 +693,8 @@ function personItems(personId, side){ // side 'recv' (bana borçlu) | 'pay' (ben
   });
   items.sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
   const dir = side === 'recv' ? 'in' : 'out';
-  const pays = state.payments.filter(p => p.personId===personId && p.dir===dir)
-                             .sort((a,b) => a.date < b.date ? -1 : 1);
+  const pays = ds.payments.filter(p => p.personId===personId && p.dir===dir)
+                          .sort((a,b) => a.date < b.date ? -1 : 1);
   let credit = 0;
   pays.forEach(p => {
     let rest = p.amount;
@@ -718,8 +718,8 @@ function itemStatus(it, ref){
 }
 const CHIP = { odendi:'Ödendi', kismi:'Kısmi', gecikti:'Gecikti', bekliyor:'Bekliyor' };
 
-function personBalance(personId){
-  const r = personItems(personId,'recv'), p = personItems(personId,'pay');
+function personBalance(personId, ds = state){
+  const r = personItems(personId,'recv',ds), p = personItems(personId,'pay',ds);
   const alacak = r.items.reduce((s,i)=>s+i.amount-i.paid,0) - r.credit;
   const borc   = p.items.reduce((s,i)=>s+i.amount-i.paid,0) - p.credit;
   return { alacak: Math.max(0,Math.round(alacak*100)/100), borc: Math.max(0,Math.round(borc*100)/100),
@@ -871,10 +871,10 @@ function nextMonths(n){
   }
   return out;
 }
-function personMonthDue(personId, ym){
+function personMonthDue(personId, ym, ds = state){
   let recv=0, pay=0;
-  personItems(personId,'recv').items.forEach(it => { if (it.due.slice(0,7)===ym) recv += it.amount-it.paid });
-  personItems(personId,'pay').items.forEach(it => { if (it.due.slice(0,7)===ym) pay += it.amount-it.paid });
+  personItems(personId,'recv',ds).items.forEach(it => { if (it.due.slice(0,7)===ym) recv += it.amount-it.paid });
+  personItems(personId,'pay',ds).items.forEach(it => { if (it.due.slice(0,7)===ym) pay += it.amount-it.paid });
   return Math.round((recv-pay)*100)/100;
 }
 
