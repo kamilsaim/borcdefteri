@@ -322,6 +322,10 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <div class="tcard"><div class="tl">Borcum</div><div class="tv neg" id="topBorc">₺0</div></div>
     </div>
     <div class="netbar"><span style="font-size:.8rem;color:var(--muted);font-weight:700">Net durum</span><b id="topNet">₺0</b></div>
+    <label id="wrapIncludeShared" style="display:none;align-items:center;gap:8px;margin:10px 0;font-size:.78rem;color:var(--muted);font-weight:600">
+      <input type="checkbox" id="chkIncludeShared" style="width:auto;margin:0">
+      Paylaşılan hesapları toplamlara dahil et
+    </label>
 
     <h2 class="sec">Geciken / Devreden</h2>
     <div class="card" id="listGeciken"></div>
@@ -965,6 +969,17 @@ function allOpenItems(){
       });
     });
   });
+  if (state.settings.includeShared){
+    state.sharedAccounts.forEach(a => {
+      ['recv','pay'].forEach(side => {
+        personItems(a.personId, side, a).items.forEach(it => {
+          const rem = Math.round((it.amount-it.paid)*100)/100;
+          // Aynalama: sahibin tarafi bende ters gorunur.
+          if (rem > 0) out.push({ person:{ id:a.personId, name:a.ownerLabel }, side:mirrorSide(side), it, rem });
+        });
+      });
+    });
+  }
   return out;
 }
 
@@ -972,6 +987,9 @@ function renderOzet(){
   const ref = todayISO();
   let ta=0, tb=0;
   state.people.forEach(p => { const b=personBalance(p.id); ta+=b.alacak; tb+=b.borc; });
+  if (state.settings.includeShared){
+    state.sharedAccounts.forEach(a => { const b=sharedBalance(a); ta+=b.alacak; tb+=b.borc; });
+  }
   document.getElementById('topAlacak').textContent = TL(ta);
   document.getElementById('topBorc').textContent = TL(tb);
   const net = ta-tb;
@@ -1008,6 +1026,17 @@ function renderOzet(){
       amount: TL(d.amount), cls:'mut'})}))
   ].sort((a,b)=>a.date<b.date?1:-1).slice(0,8);
   document.getElementById('listSon').innerHTML = moves.length ? moves.map(m=>m.html).join('') : '<div class="empty">Henüz kayıt yok. + ile başlayın.</div>';
+
+  // Paylasilan hesap yoksa anahtar hic gosterilmez. Varsayilan kapali: karsi taraf
+  // kendi defterinde ayni borcu tutuyor olabilir, cift sayim riski var.
+  const chk = document.getElementById('chkIncludeShared');
+  document.getElementById('wrapIncludeShared').style.display = state.sharedAccounts.length ? 'flex' : 'none';
+  chk.checked = !!state.settings.includeShared;
+  chk.onchange = async () => {
+    state.settings.includeShared = chk.checked;
+    await Store.save(state);
+    render();
+  };
 }
 
 function renderAylik(){
@@ -1987,7 +2016,8 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
 };
 
 function applyLoaded(loaded){
-  if (loaded) state = { ...state, ...loaded, settings: { cutoffDay:23, payDay:1, ...loaded.settings }, cards: loaded.cards || [] };
+  // includeShared yalnizca localStorage'da yasar (borc_ayarlar'da kolonu yok) — cihaza ozel gorsel filtre.
+  if (loaded) state = { ...state, ...loaded, settings: { cutoffDay:23, payDay:1, includeShared:false, ...loaded.settings }, cards: loaded.cards || [] };
 }
 
 // Ilk girisin hemen ardindan Supabase istegi bazen basarisiz donuyor (token yeni kurulmus oluyor);
