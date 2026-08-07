@@ -194,6 +194,8 @@ h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
 .debthead .t{flex:1;font-weight:700;font-size:.92rem}
 .del{color:var(--muted);font-size:1rem;padding:4px 8px}
 .del:active{color:var(--borc)}
+.share{color:var(--muted);font-size:1.05rem;padding:4px 8px}
+.share:active{color:var(--brass)}
 .edit{color:var(--muted);font-size:.95rem;padding:4px 6px}
 .edit:active{color:var(--brass)}
 
@@ -366,6 +368,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <div class="detailhead">
       <button class="back" id="btnBack">‹</button>
       <h3 id="dName"></h3>
+      <button class="share" id="btnShare" title="Hesabı paylaş">⇄</button>
       <button class="del" id="btnDelPerson">🗑</button>
     </div>
     <div class="balance" id="dBalance"></div>
@@ -374,7 +377,6 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <button class="abtn al" data-quick="in">₺ Para Aldım</button>
       <button class="abtn ver" data-quick="out">₺ Para Verdim</button>
       <button class="abtn tk" data-quick="taksit">＋ Kart Taksit</button>
-      <button class="abtn" id="btnShare">⇄ Paylaş</button>
     </div>
     <h2 class="sec">Borçlar & Taksitler</h2>
     <div class="card" id="dDebts"></div>
