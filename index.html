@@ -1426,10 +1426,13 @@ document.querySelectorAll('.overlay').forEach(o => {
 });
 
 /* ---- Özel onay penceresi (native confirm() yerine) ---- */
-function askConfirm(msg){
+// Cogu onay bir silme oldugu icin varsayilan etiket "Sil"; silme disindaki
+// islemler kendi fiilini gecer (cikis, reddet, kaldir...).
+function askConfirm(msg, okLabel = 'Sil'){
   return new Promise(resolve => {
     document.getElementById('cMsg').textContent = msg;
     const okBtn = document.getElementById('cOk'), cancelBtn = document.getElementById('cCancel');
+    okBtn.textContent = okLabel;
     const cleanup = (result) => { ov('ovConfirm').classList.remove('open'); okBtn.onclick=null; cancelBtn.onclick=null; resolve(result) };
     okBtn.onclick = () => cleanup(true);
     cancelBtn.onclick = () => cleanup(false);
@@ -1648,7 +1651,7 @@ document.getElementById('fShareSave').onclick = async () => {
 };
 
 async function respondInvite(shareId, accept){
-  if (!accept && !await askConfirm('Bu davet reddedilsin mi?')) return;
+  if (!accept && !await askConfirm('Bu davet reddedilsin mi?', 'Reddet')) return;
   const patch = accept
     ? { status: 'accepted', invitee_id: SharedStore._uid }
     : { status: 'revoked' };
@@ -1659,7 +1662,7 @@ async function respondInvite(shareId, accept){
 }
 
 async function leaveShare(shareId){
-  if (!await askConfirm('Bu paylaşımdan çıkılsın mı? Hesap listenden kaldırılır.')) return;
+  if (!await askConfirm('Bu paylaşımdan çıkılsın mı? Hesap listenden kaldırılır.', 'Ayrıl')) return;
   const { error } = await sb.from('borc_shares').update({ status: 'revoked' }).eq('id', shareId);
   if (error){ alert('Çıkılamadı: ' + error.message); return }
   currentShare = null;
@@ -1917,7 +1920,7 @@ function renderShareList(){
     renderShareList();
   });
   el.querySelectorAll('[data-sharedel]').forEach(b => b.onclick = async () => {
-    if (!await askConfirm('Bu paylaşım kaldırılsın mı? Karşı taraf hesabı artık göremez.')) return;
+    if (!await askConfirm('Bu paylaşım kaldırılsın mı? Karşı taraf hesabı artık göremez.', 'Kaldır')) return;
     const { error } = await sb.from('borc_shares').delete().eq('id', b.dataset.sharedel);
     if (error){ alert('Kaldırılamadı: ' + error.message); return }
     await reloadShared();
@@ -2004,7 +2007,7 @@ function showAuthScreen(){
   document.getElementById('appNav').style.display = 'none';
 }
 document.getElementById('btnLogout').onclick = async () => {
-  if (!await askConfirm('Çıkış yapılsın mı?')) return;
+  if (!await askConfirm('Çıkış yapılsın mı?', 'Çıkış yap')) return;
   Store._unsubscribeRealtime();
   SharedStore._unsubscribe();
   await sb.auth.signOut();
