@@ -724,6 +724,7 @@ const SharedStore = {
   _uid: null,
   _email: null,
   _channel: null,
+  _watchedIds: null,
 
   async load(){
     const { data: { user } } = await sb.auth.getUser();
@@ -777,15 +778,34 @@ const SharedStore = {
     return state.shares.filter(s => s.ownerId === this._uid && s.status !== 'revoked');
   },
 
+  /* Paylasilan hesaplarin satirlari bizim user_id'mizle gelmedigi icin Store'un
+     user_id filtreli kanali onlari hic gormez; her paylasilan kisi icin ayri
+     person_id filtresi gerekiyor. Paylasim kabul/iptal edilince izlenen kimlik
+     kumesi degisir, o yuzden kanal yeniden kurulur. */
   _subscribeRealtime(onChange){
-    if (this._channel) return;
-    this._channel = sb.channel('borc-shares')
-      .on('postgres_changes', { event:'*', schema:'public', table:'borc_shares' }, onChange)
-      .subscribe();
+    const ids = state.sharedAccounts.map(a => a.personId).sort();
+    const key = ids.join(',');
+    if (this._channel && key === this._watchedIds) return;
+    this._unsubscribe();
+    this._watchedIds = key;
+
+    let t = null;
+    const debounced = () => { clearTimeout(t); t = setTimeout(onChange, 300) };
+
+    let ch = sb.channel('borc-shares')
+      .on('postgres_changes', { event:'*', schema:'public', table:'borc_shares' }, debounced);
+    for (const pid of ids){
+      ch = ch
+        .on('postgres_changes', { event:'*', schema:'public', table:'borc_debts',    filter:`person_id=eq.${pid}` }, debounced)
+        .on('postgres_changes', { event:'*', schema:'public', table:'borc_payments', filter:`person_id=eq.${pid}` }, debounced)
+        .on('postgres_changes', { event:'*', schema:'public', table:'borc_people',   filter:`id=eq.${pid}` }, debounced);
+    }
+    this._channel = ch.subscribe();
   },
 
   _unsubscribe(){
     if (this._channel){ sb.removeChannel(this._channel); this._channel = null }
+    this._watchedIds = null;
   }
 };
 
@@ -2064,13 +2084,18 @@ async function reloadShared(){
   } catch (e) {
     // Cevrimdisi: localStorage'dan gelen son bilinen paylasim verisi salt-okunur kalir.
   }
-  SharedStore._subscribeRealtime(async () => {
-    const s = await SharedStore.load().catch(() => null);
-    if (!s) return;
-    state.shares = s.shares;
-    state.sharedAccounts = s.sharedAccounts;
-    render();
-  });
+  SharedStore._subscribeRealtime(onSharedChange);
+}
+
+async function onSharedChange(){
+  const s = await SharedStore.load().catch(() => null);
+  if (!s) return;
+  state.shares = s.shares;
+  state.sharedAccounts = s.sharedAccounts;
+  render();
+  renderShareList();
+  // Kanali kendi callback'i icinden sokup takmamak icin bir tur beklet.
+  setTimeout(() => SharedStore._subscribeRealtime(onSharedChange), 0);
 }
 
 async function renderAccountEmail(){
