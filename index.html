@@ -528,6 +528,9 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <div id="fCashDateWrap" style="display:none">
       <label>Tarih</label>
       <input id="fCashDate" type="date">
+      <label>Son ödeme tarihi <span style="color:var(--muted);font-weight:400">(isteğe bağlı)</span></label>
+      <input id="fCashDue" type="date">
+      <div class="hint">Boş bırakırsan bu kayıt hiçbir zaman "gecikti" sayılmaz.</div>
     </div>
     <button class="primary" id="fDebtSave">Kaydet</button>
   </div>
@@ -858,8 +861,10 @@ function addMonths(isoStr, k){
 
 /* ---- Taksit planı ---- */
 function schedule(debt){
+  // Nakitte vade istege baglidir: firstDue doluysa o, degilse islem tarihi
+  // siralama icin kullanilir ama noDue ile "gecikmez" olarak isaretlenir.
   if (debt.kind !== 'installment')
-    return [{ due: debt.date, amount: debt.amount, idx: 0 }];
+    return [{ due: debt.firstDue || debt.date, amount: debt.amount, idx: 0, noDue: !debt.firstDue }];
   const per = Math.floor(debt.amount / debt.count * 100) / 100;
   const items = [];
   for (let k=0; k<debt.count; k++){
@@ -879,7 +884,7 @@ function personItems(personId, side, ds = state){ // side 'recv' (bana borçlu) 
     if (side === 'recv') return d.kind==='cash_out' || (d.kind==='installment' && !d.owe);
     return d.kind==='cash_in' || (d.kind==='installment' && d.owe);
   }).forEach(d => {
-    schedule(d).forEach(it => items.push({ debt: d, due: it.due, amount: it.amount, idx: it.idx, paid: 0 }));
+    schedule(d).forEach(it => items.push({ debt: d, due: it.due, amount: it.amount, idx: it.idx, paid: 0, noDue: !!it.noDue }));
   });
   items.sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
   const dir = side === 'recv' ? 'in' : 'out';
@@ -903,7 +908,8 @@ function personItems(personId, side, ds = state){ // side 'recv' (bana borçlu) 
 function itemStatus(it, ref){
   const rem = Math.round((it.amount - it.paid)*100)/100;
   if (rem <= 0) return 'odendi';
-  if (it.due < ref) return it.paid > 0 ? 'gecikti' : 'gecikti';
+  // Vadesi olmayan nakit kalem (son odeme tarihi girilmemis) hicbir zaman gecikmez.
+  if (!it.noDue && it.due < ref) return 'gecikti';
   return it.paid > 0 ? 'kismi' : 'bekliyor';
 }
 const CHIP = { odendi:'Ödendi', kismi:'Kısmi', gecikti:'Gecikti', bekliyor:'Bekliyor' };
@@ -1024,11 +1030,11 @@ function renderOzet(){
 
   const open = allOpenItems();
   const ym = ref.slice(0,7);
-  const late = open.filter(o => o.it.due < ref && o.it.due.slice(0,7) < ym || (o.it.due < ref));
-  const thisMonth = open.filter(o => o.it.due.slice(0,7) === ym && o.it.due >= ref || (o.it.due.slice(0,7)===ym && o.it.due < ref));
-  // sadeleştir: geciken = vadesi geçmiş; bu ay = bu ay vadeli ve geçmemiş
-  const lateL = open.filter(o => o.it.due < ref).sort((a,b)=>a.it.due<b.it.due?-1:1);
-  const monthL = open.filter(o => o.it.due >= ref && o.it.due.slice(0,7)===ym).sort((a,b)=>a.it.due<b.it.due?-1:1);
+  // geciken = vadesi geçmiş; bu ay = bu ay vadeli ve geçmemiş.
+  // Vadesiz nakit kalemler (noDue) ikisine de girmez - bir vade tarihleri yok.
+  const dated = open.filter(o => !o.it.noDue);
+  const lateL = dated.filter(o => o.it.due < ref).sort((a,b)=>a.it.due<b.it.due?-1:1);
+  const monthL = dated.filter(o => o.it.due >= ref && o.it.due.slice(0,7)===ym).sort((a,b)=>a.it.due<b.it.due?-1:1);
 
   const mkRow = o => rowHTML({
     name: o.person.name,
@@ -1486,6 +1492,7 @@ function openDebtForm(kind, personId, existing){
   document.getElementById('fNewPerson').value = '';
   document.getElementById('fDebtDate').value = existing ? existing.date : todayISO();
   document.getElementById('fCashDate').value = existing ? existing.date : todayISO();
+  document.getElementById('fCashDue').value = existing ? (existing.firstDue || '') : '';
   if (kind==='taksit'){
     document.getElementById('fDebtCount').value = existing ? existing.count : 1;
     fillDebtCardSelect();
@@ -1562,7 +1569,10 @@ document.getElementById('fDebtSave').onclick = async () => {
       firstDue: firstDueDate(date, card.cutoffDay, card.payDay) };
   } else {
     const date = document.getElementById('fCashDate').value || todayISO();
-    payload = { kind:debtKind, amount, date, desc };
+    // Nakitte firstDue = istege bagli son odeme tarihi (taksitte ilk taksit vadesi).
+    // Bos ise kalemin vadesi yoktur ve asla gecikmis sayilmaz.
+    payload = { kind:debtKind, amount, date, desc,
+      firstDue: document.getElementById('fCashDue').value || null };
   }
   if (editingDebtId){
     const i = state.debts.findIndex(d=>d.id===editingDebtId);
