@@ -42,6 +42,7 @@
     <li><strong>Hesap bilgileri:</strong> Google ile giriş yaptığınızda, Google'dan gelen <strong>ad, e-posta adresi ve profil fotoğrafınız</strong> hesabınızı tanımlamak için alınır.</li>
     <li><strong>Uygulama verileri:</strong> Kendi girdiğiniz kişiler, borç/alacak kayıtları, ödemeler ve kart tanımları (kart adı, kesim/son ödeme günü). <strong>Kart numarası, CVV veya herhangi bir ödeme aracı bilgisi istenmez ve saklanmaz.</strong></li>
     <li><strong>Paylaşım bilgileri:</strong> Bir kaydı başka bir kullanıcıyla paylaşmak isterseniz, davet ettiğiniz kişinin <strong>e-posta adresi</strong> daveti eşleştirmek için saklanır.</li>
+    <li><strong>Bildirim kimliği:</strong> Android uygulamasında bildirimlere izin verirseniz, cihazınıza ait <strong>Firebase Cloud Messaging (FCM) kayıt jetonu</strong> saklanır. Bu jeton yalnızca bildirimi doğru cihaza ulaştırmak için kullanılır; reklam kimliği değildir ve izleme amacıyla kullanılmaz.</li>
   </ul>
   <p>Uygulamada <strong>reklam ağı, analitik veya izleme (tracking) SDK'sı bulunmaz</strong>; konum, rehber, fotoğraf, kişiler veya cihaz tanımlayıcıları toplanmaz.</p>
 
@@ -56,9 +57,12 @@
   <p>Verileriniz <strong>üçüncü taraflara satılmaz ve pazarlama amacıyla paylaşılmaz</strong>. Yalnızca şu durumlarda paylaşılır:</p>
   <ul>
     <li><strong>Sizin isteğinizle diğer kullanıcılarla:</strong> “Paylaşılan Hesaplar” özelliğini kullanarak bir kişi kaydını başka bir kullanıcıyla paylaştığınızda, o kayda ait <strong>kişi adı, borç/alacak kalemleri ve ödemeler</strong> davet ettiğiniz kullanıcıya görünür olur. Verdiğiniz role göre karşı taraf yalnızca görüntüleyebilir ya da kayıt ekleyebilir. Kart bilgileriniz (kart adı, kesim/ödeme günü) paylaşıma <strong>kapalıdır</strong>. Paylaşımı istediğiniz zaman uygulamadan iptal edebilirsiniz.</li>
-    <li><strong>Hizmet sağlayıcılarla:</strong> Yalnızca uygulamanın çalışması için gereken ölçüde — barındırma/veritabanı için Supabase, giriş için Google.</li>
+    <li><strong>Hizmet sağlayıcılarla:</strong> Yalnızca uygulamanın çalışması için gereken ölçüde — barındırma/veritabanı için Supabase, giriş için Google, bildirim iletimi için Google Firebase Cloud Messaging.</li>
     <li><strong>Yasal zorunluluk halinde:</strong> Yetkili makamların hukuka uygun talebi üzerine.</li>
   </ul>
+
+  <h2>Bildirimler</h2>
+  <p>Yalnızca <strong>sizin katıldığınız paylaşılan hesaplarda</strong> bir hareket olduğunda (kayıt eklenmesi, düzenlenmesi, silinmesi veya paylaşım daveti) bildirim gönderilir. Kendi yaptığınız işlemler için size bildirim gitmez ve pazarlama amaçlı bildirim gönderilmez. Bildirim iletimi için <strong>Google Firebase Cloud Messaging</strong> kullanılır; iletilen içerik kayıt adı ve tutar gibi bildirimin metnidir. Bildirimleri Android sistem ayarlarından istediğiniz zaman kapatabilirsiniz; kapattığınızda cihaz jetonunuz kullanılmaz hale gelir ve geçersizleştiğinde kayıtlarımızdan otomatik silinir.</p>
 
   <h2>Saklama süresi</h2>
   <p>Verileriniz, siz silene kadar hesabınıza bağlı olarak saklanır. Silme işleminden sonra kayıtlar veritabanından derhal kaldırılır; sağlayıcı tarafındaki şifreli yedeklerden temizlenmesi <strong>en geç 30 gün</strong> sürer.</p>

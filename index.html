@@ -699,7 +699,10 @@ const Store = {
     const onChange = () => {
       clearTimeout(t);
       t = setTimeout(async () => {
-        if (this._pushing) return;
+        // Push sirasinda yenileme yaparsak yarim state okuruz; ama olayi
+        // tamamen dusurursek silinen kayit bu cihazda kalir ve bir sonraki
+        // save()'in "hepsini upsert et" adiminda geri dirilir. Ertele.
+        if (this._pushing){ onChange(); return }
         const remote = await this.load();
         if (remote){ state = remote; render(); }
       }, 300);
@@ -2008,6 +2011,7 @@ function showAuthScreen(){
 }
 document.getElementById('btnLogout').onclick = async () => {
   if (!await askConfirm('Çıkış yapılsın mı?', 'Çıkış yap')) return;
+  await Push.release();
   Store._unsubscribeRealtime();
   SharedStore._unsubscribe();
   await sb.auth.signOut();
@@ -2027,6 +2031,7 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
     alert('Hesap silinemedi: ' + (e?.message || e) + '\nLütfen daha sonra tekrar deneyin.');
     return;
   }
+  await Push.release();
   Store._unsubscribeRealtime();
   SharedStore._unsubscribe();
   try { localStorage.removeItem(Store.key); } catch {}
@@ -2062,6 +2067,71 @@ async function reloadFromRemote(attempt = 0){
   if (attempt < 5) reloadTimer = setTimeout(() => reloadFromRemote(attempt + 1), Math.min(1000 * 2 ** attempt, 15000));
 }
 
+/* Push bildirimleri - yalnizca APK'da calisir. Bu katmanin tek isi cihaz
+   token'ini borc_push_tokens'a yazmak; hangi olayda kime bildirim gidecegine
+   veritabani trigger'lari karar verir (borc_push -> borc-push Edge Function). */
+const Push = {
+  _wired: false,
+  _token: null,
+
+  async init(){
+    const P = window.Capacitor?.Plugins?.PushNotifications;
+    if (!P) return;
+
+    if (!this._wired){
+      this._wired = true;
+      // Android 8+ kanalsiz bildirim gostermez; FCM payload'i bu id ile geliyor.
+      try {
+        await P.createChannel({
+          id:'borc_ortak', name:'Ortak hesap hareketleri',
+          description:'Paylasilan hesaplardaki ekleme, degisiklik ve davetler',
+          importance:5, visibility:1
+        });
+      } catch(e) {}
+
+      P.addListener('registration', async ({ value }) => {
+        this._token = value;
+        await this._saveToken(value);
+      });
+      P.addListener('registrationError', e => console.warn('push kaydi basarisiz', e));
+      P.addListener('pushNotificationActionPerformed', ({ notification }) => {
+        const pid = notification?.data?.personId;
+        if (pid) this._openPerson(pid);
+      });
+    }
+
+    let perm = await P.checkPermissions();
+    if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') perm = await P.requestPermissions();
+    if (perm.receive !== 'granted') return;
+    await P.register();
+  },
+
+  async _saveToken(token){
+    try {
+      const { data:{ user } } = await sb.auth.getUser();
+      if (!user || !token) return;
+      await sb.from('borc_push_tokens').upsert({
+        token, user_id:user.id, platform:'android', updated_at:new Date().toISOString()
+      });
+    } catch(e) { console.warn('push token kaydedilemedi', e) }
+  },
+
+  // Cikista token'i birak - aksi halde hesabi degistiren cihaz eski kullanicinin
+  // bildirimlerini almaya devam eder.
+  async release(){
+    if (!this._token) return;
+    try { await sb.from('borc_push_tokens').delete().eq('token', this._token) } catch(e) {}
+  },
+
+  _openPerson(personId){
+    if (state.people.some(p => p.id === personId)){
+      currentPerson = personId; show('detay'); return;
+    }
+    const acc = (state.sharedAccounts || []).find(a => a.personId === personId);
+    if (acc){ currentShare = acc.shareId; show('shared') } else { show('paylasilan') }
+  }
+};
+
 async function bootApp(){
   const loaded = await Store.load();
   applyLoaded(loaded);
@@ -2076,6 +2146,7 @@ async function bootApp(){
   renderAccountEmail();
   showApp();
   show(currentTab);
+  Push.init();
   if (Store.status !== 'synced') reloadFromRemote();
 }
 
