@@ -7,6 +7,9 @@
 <title>Borç Defteri</title>
 <link rel="icon" type="image/png" href="logo.png">
 <link rel="apple-touch-icon" href="logo.png">
+<link rel="manifest" href="manifest.json">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chivo+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -424,6 +427,11 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <button class="ghost" id="btnLogout" style="color:var(--borc)">Çıkış yap</button>
     <button class="ghost" id="btnDeleteAccount" style="color:var(--borc)">Hesabımı sil</button>
     <div class="hint">Bu işlem hesabınızı ve tüm borç/alacak kayıtlarınızı kalıcı olarak siler. <a href="gizlilik-politikasi.html" style="color:var(--muted)">Gizlilik politikası</a></div>
+    <h2 class="sec">Bildirimler</h2>
+    <div class="card" style="padding:12px">
+      <div class="hint" id="pushStatus">—</div>
+      <button class="ghost" id="btnEnablePush">Bildirimleri aç</button>
+    </div>
     <h2 class="sec">Paylaşımlarım</h2>
     <div class="card" id="listShares"></div>
     <h2 class="sec">Kart Ayarları</h2>
@@ -588,6 +596,10 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<!-- Web push (iOS 16.4+ ana ekrana eklenmis PWA ve masaustu/Android tarayici).
+     APK'da bunlar kullanilmaz, orada Capacitor eklentisi devrede. -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <script>
 /* =====================================================
    VERİ KATMANI — Supabase (beebook projesi, borc_ önekli tablolar)
@@ -2084,7 +2096,81 @@ const Push = {
   _wired: false,
   _token: null,
 
+  FIREBASE: {
+    apiKey: 'AIzaSyBF5UPLrDUIsAH-Fhp-CGtzc2-g8aF8odo',
+    authDomain: 'kamilsaim.firebaseapp.com',
+    projectId: 'kamilsaim',
+    storageBucket: 'kamilsaim.firebasestorage.app',
+    messagingSenderId: '981361653395',
+    appId: '1:981361653395:web:5dead0e7dcad3c728fbf66'
+  },
+  VAPID: 'BObLN0REgkGw32yJ6EozDXY2P5AYFuhdDAfg82XexCVg2sYsTa9f-mJnPEZi79q0NJAxSUDE9_OOuzZPzxZwNvo',
+
+  isNative(){ return !!window.Capacitor?.Plugins?.PushNotifications },
+
+  // iOS'ta Web Push yalnizca ana ekrana eklenmis (standalone) modda calisir.
+  iosStandalone(){
+    return window.navigator.standalone === true ||
+           window.matchMedia?.('(display-mode: standalone)').matches;
+  },
+
+  webSupported(){
+    return !this.isNative() && 'serviceWorker' in navigator && 'PushManager' in window &&
+           typeof firebase !== 'undefined' && firebase.messaging?.isSupported?.();
+  },
+
   async init(){
+    if (this.isNative()) return this._initNative();
+    // Web'de izin istemek kullanici hareketine bagli olmali (iOS sart kosuyor);
+    // burada yalnizca daha once izin verilmis cihazin token'ini tazeliyoruz.
+    if (this.webSupported() && Notification.permission === 'granted') await this._initWeb();
+  },
+
+  /* ---- Web (PWA / tarayici) ---- */
+  async _initWeb(){
+    try {
+      if (!firebase.apps.length) firebase.initializeApp(this.FIREBASE);
+      const reg = await navigator.serviceWorker.register('sw.js');
+      await navigator.serviceWorker.ready;
+      const messaging = firebase.messaging();
+      const token = await messaging.getToken({ vapidKey: this.VAPID, serviceWorkerRegistration: reg });
+      if (!token) return false;
+      this._token = token;
+      await this._saveToken(token, 'web');
+
+      if (!this._swWired){
+        this._swWired = true;
+        navigator.serviceWorker.addEventListener('message', e => {
+          if (e.data?.type === 'push-open' && e.data.personId) this._openPerson(e.data.personId);
+        });
+      }
+      return true;
+    } catch(e){ console.warn('web push kurulamadi', e); return false }
+  },
+
+  // Ayarlar'daki dugmeden cagrilir - izin istegi mutlaka buradan (kullanici dokunusu) gecer.
+  async enableWeb(){
+    if (this.isNative()) return { ok:true, msg:'Bildirimler zaten açık.' };
+    if (!('Notification' in window))
+      return { ok:false, msg:'Bu tarayıcı bildirimleri desteklemiyor.' };
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                  (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    if (isIOS && !this.iosStandalone())
+      return { ok:false, msg:'iPhone/iPad\'de bildirim için önce Paylaş → "Ana Ekrana Ekle" ile uygulamayı ana ekrana eklemelisin, sonra oradan açıp tekrar dene.' };
+    if (!this.webSupported())
+      return { ok:false, msg:'Bu cihaz/tarayıcı web bildirimlerini desteklemiyor.' };
+
+    const perm = await Notification.requestPermission();
+    if (perm !== 'granted')
+      return { ok:false, msg:'Bildirim izni verilmedi. Tarayıcı ayarlarından açabilirsin.' };
+
+    const ok = await this._initWeb();
+    return ok ? { ok:true, msg:'Bildirimler açıldı.' }
+              : { ok:false, msg:'Bildirim kaydı yapılamadı, daha sonra tekrar dene.' };
+  },
+
+  /* ---- APK (Capacitor) ---- */
+  async _initNative(){
     const P = window.Capacitor?.Plugins?.PushNotifications;
     if (!P) return;
 
@@ -2116,12 +2202,12 @@ const Push = {
     await P.register();
   },
 
-  async _saveToken(token){
+  async _saveToken(token, platform='android'){
     try {
       const { data:{ user } } = await sb.auth.getUser();
       if (!user || !token) return;
       await sb.from('borc_push_tokens').upsert({
-        token, user_id:user.id, platform:'android', updated_at:new Date().toISOString()
+        token, user_id:user.id, platform, updated_at:new Date().toISOString()
       });
     } catch(e) { console.warn('push token kaydedilemedi', e) }
   },
@@ -2142,6 +2228,42 @@ const Push = {
   }
 };
 
+function renderPushStatus(){
+  const el = document.getElementById('pushStatus');
+  const btn = document.getElementById('btnEnablePush');
+  if (!el || !btn) return;
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+                (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (Push.isNative()){
+    el.textContent = '● Uygulama bildirimleri açık (Android)';
+    btn.style.display = 'none';
+  } else if (isIOS && !Push.iosStandalone()){
+    el.innerHTML = 'iPhone/iPad\'de bildirim almak için önce <b>Paylaş → Ana Ekrana Ekle</b> ile uygulamayı ana ekrana ekle, sonra oradan aç.';
+    btn.style.display = 'none';
+  } else if (!('Notification' in window) || !Push.webSupported()){
+    el.textContent = 'Bu cihaz/tarayıcı bildirimleri desteklemiyor.';
+    btn.style.display = 'none';
+  } else if (Notification.permission === 'granted'){
+    el.textContent = '● Bildirimler açık';
+    btn.style.display = 'none';
+  } else if (Notification.permission === 'denied'){
+    el.textContent = 'Bildirimler engellenmiş. Tarayıcı/site ayarlarından izin vermen gerekiyor.';
+    btn.style.display = 'none';
+  } else {
+    el.textContent = 'Paylaşılan hesaplarındaki hareketlerden haberdar olmak için bildirimleri aç.';
+    btn.style.display = '';
+  }
+}
+
+document.getElementById('btnEnablePush').onclick = async () => {
+  const btn = document.getElementById('btnEnablePush');
+  btn.disabled = true;
+  const r = await Push.enableWeb();
+  btn.disabled = false;
+  renderPushStatus();
+  toast(r.msg);
+};
+
 async function bootApp(){
   const loaded = await Store.load();
   applyLoaded(loaded);
@@ -2156,7 +2278,8 @@ async function bootApp(){
   renderAccountEmail();
   showApp();
   show(currentTab);
-  Push.init();
+  Push.init().then(renderPushStatus);
+  renderPushStatus();
   if (Store.status !== 'synced') reloadFromRemote();
 }
 
