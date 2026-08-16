@@ -1545,7 +1545,18 @@ async function resolvePerson(sel, newInput){
   return p.id;
 }
 
-document.getElementById('fDebtSave').onclick = async () => {
+// Kaydet butonlarina cift tiklama/dokunma korumasi: async islem surerken buton
+// pasif kalir, ayni tikin ikinci kez tetiklenip kaydi ikiye katlamasi engellenir.
+function guardSave(id, handler){
+  const btn = document.getElementById(id);
+  btn.onclick = async () => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    try { await handler() } finally { btn.disabled = false }
+  };
+}
+
+guardSave('fDebtSave', async () => {
   if (sharedDebtCtx){
     const acc = sharedDebtCtx;
     const amount = Number(document.getElementById('fDebtAmount').value);
@@ -1594,7 +1605,7 @@ document.getElementById('fDebtSave').onclick = async () => {
     state.debts.push({ id:uid(), personId:pid, ...payload, createdBy:null, approved:true });
   }
   await Store.save(state); closeSheets(); render();
-};
+});
 
 let payDir = 'in';
 let editingPayId = null;
@@ -1616,7 +1627,7 @@ function setSeg(){
 document.getElementById('segIn').onclick = () => { payDir='in'; setSeg() };
 document.getElementById('segOut').onclick = () => { payDir='out'; setSeg() };
 
-document.getElementById('fPaySave').onclick = async () => {
+guardSave('fPaySave', async () => {
   const sel = document.getElementById('fPayPerson');
   let pid = sel.value;
   if (pid==='__new'){ alert('Önce kişiyi borç kaydıyla ekleyin'); return }
@@ -1633,7 +1644,7 @@ document.getElementById('fPaySave').onclick = async () => {
     state.payments.push({ id:uid(), personId:pid, ...payload, createdBy:null, approved:true });
   }
   await Store.save(state); closeSheets(); render();
-};
+});
 
 /* ---- Paylaşım ---- */
 document.getElementById('btnShare').onclick = () => {
@@ -1650,7 +1661,7 @@ document.getElementById('btnShare').onclick = () => {
   openSheet('ovShare');
 };
 
-document.getElementById('fShareSave').onclick = async () => {
+guardSave('fShareSave', async () => {
   const email = document.getElementById('fShareEmail').value.trim().toLowerCase();
   const role = document.getElementById('fShareRole').value;
   const p = state.people.find(x => x.id === currentPerson);
@@ -1673,7 +1684,7 @@ document.getElementById('fShareSave').onclick = async () => {
     catch { alert('Kopyalanamadı, metni elle seçip kopyalayın.') }
   };
   render();
-};
+});
 
 async function respondInvite(shareId, accept){
   if (!accept && !await askConfirm('Bu davet reddedilsin mi?', 'Reddet')) return;
@@ -1783,7 +1794,7 @@ function openSharedPayForm(acc, dir, existing){
   openSheet('ovSharedPay');
 }
 
-document.getElementById('fSharedPaySave').onclick = async () => {
+guardSave('fSharedPaySave', async () => {
   const { acc, dir, editing } = sharedPayCtx;
   const amount = Number(document.getElementById('fSharedPayAmount').value);
   if (!amount || amount <= 0){ alert('Geçerli bir tutar girin.'); return }
@@ -1805,7 +1816,7 @@ document.getElementById('fSharedPaySave').onclick = async () => {
   closeSheets();
   await reloadShared();
   render();
-};
+});
 
 document.getElementById('fSharedPayDelete').onclick = async () => {
   const editing = sharedPayCtx && sharedPayCtx.editing;
@@ -1889,7 +1900,7 @@ function openCardForm(existing){
   openSheet('ovCard');
 }
 document.getElementById('btnAddCard').onclick = () => openCardForm();
-document.getElementById('fCardSave').onclick = async () => {
+guardSave('fCardSave', async () => {
   const name = document.getElementById('fCardName').value.trim();
   if (!name){ alert('Kart adı girin'); return }
   const cutoffDay = Number(document.getElementById('fCardCutoff').value);
@@ -1902,7 +1913,7 @@ document.getElementById('fCardSave').onclick = async () => {
     state.cards.push({ id: uid(), name, cutoffDay, payDay, isDefault: state.cards.length===0 });
   }
   await Store.save(state); closeSheets(); renderCardList(); fillDebtCardSelect();
-};
+});
 function setDefaultCard(id){
   state.cards.forEach(c => c.isDefault = c.id===id);
 }
