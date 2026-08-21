@@ -1431,7 +1431,7 @@ function renderDetay(){
 
 /* =================== FORMLAR =================== */
 const ov = id => document.getElementById(id);
-function openSheet(id){ ov(id).classList.add('open') }
+function openSheet(id){ document.querySelectorAll('button.guarded').forEach(b=>b.disabled=false); ov(id).classList.add('open') }
 function closeSheets(){
   document.querySelectorAll('.overlay').forEach(o=>o.classList.remove('open'));
   sharedDebtCtx = null;
@@ -1549,10 +1549,19 @@ async function resolvePerson(sel, newInput){
 // pasif kalir, ayni tikin ikinci kez tetiklenip kaydi ikiye katlamasi engellenir.
 function guardSave(id, handler){
   const btn = document.getElementById(id);
+  btn.classList.add('guarded');
   btn.onclick = async () => {
     if (btn.disabled) return;
     btn.disabled = true;
-    try { await handler() } finally { btn.disabled = false }
+    const label = btn.textContent;
+    btn.textContent = 'Kaydediliyor…';
+    try { await handler() }
+    finally {
+      btn.textContent = label;
+      // Sheet kapandiysa kayit basarili olmustur; buton bir sonraki openSheet'te
+      // yeniden acilir. Acik kaldiysa dogrulama hatasidir, hemen kullanilabilsin.
+      if (btn.closest('.overlay').classList.contains('open')) btn.disabled = false;
+    }
   };
 }
 
@@ -1604,7 +1613,8 @@ guardSave('fDebtSave', async () => {
   } else {
     state.debts.push({ id:uid(), personId:pid, ...payload, createdBy:null, approved:true });
   }
-  await Store.save(state); closeSheets(); render();
+  closeSheets(); render();
+  await Store.save(state);
 });
 
 let payDir = 'in';
@@ -1643,7 +1653,8 @@ guardSave('fPaySave', async () => {
   } else {
     state.payments.push({ id:uid(), personId:pid, ...payload, createdBy:null, approved:true });
   }
-  await Store.save(state); closeSheets(); render();
+  closeSheets(); render();
+  await Store.save(state);
 });
 
 /* ---- Paylaşım ---- */
