@@ -689,25 +689,36 @@ const Store = {
   async _push(s){
     if (!this._uid) return;
     this._pending = s;
-    if (this._pushing) return; // bir sonraki save/online tetikleyicisinde tekrar denenecek
+    if (this._pushing) return; // zaten suren push bitince asagidaki dongu en guncel _pending'i otomatik gonderir
     this._pushing = true;
-    this._setStatus('syncing');
     try {
-      const prev = this._lastSynced || { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
-      await this._syncTable('borc_cards', prev.cards, s.cards, r => ({ id:r.id, user_id:this._uid, ad:r.name, cutoff_day:r.cutoffDay, pay_day:r.payDay, is_default:!!r.isDefault }));
-      await this._syncTable('borc_people', prev.people, s.people, r => ({ id:r.id, user_id:this._uid, ad:r.name, sort_order:r.sortOrder }));
-      await this._syncTable('borc_debts', prev.debts, s.debts, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, kind:r.kind, amount:r.amount, date:r.date, aciklama:r.desc||null, count:r.count ?? null, first_due:r.firstDue ?? null, owe:!!r.owe, card_id:r.cardId||null, created_by:r.createdBy ?? null, approved:r.approved !== false }));
-      await this._syncTable('borc_payments', prev.payments, s.payments, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, amount:r.amount, date:r.date, dir:r.dir, note:r.note||null, created_by:r.createdBy ?? null, approved:r.approved !== false }));
-      if (JSON.stringify(prev.settings) !== JSON.stringify(s.settings)){
-        const { error } = await sb.from('borc_ayarlar').upsert({ user_id:this._uid, cutoff_day:s.settings.cutoffDay, pay_day:s.settings.payDay, updated_at:new Date().toISOString() });
-        if (error) throw error;
+      // state tek bir mutable nesne oldugu icin (referansi push suresince degismez), her
+      // turda anlik icerigini donduruyoruz: agdaki bekleme sirasinda yeni bir kayit gelirse
+      // (state yerinde degisir) bunu, push bittikten sonra icerik karsilastirmasiyla yakalayip
+      // tekrar gonderiyoruz. Aksi halde ilk push bitince _pending referans esitligiyle hemen
+      // temizlenir ve arada eklenen kayit hic Supabase'e ulasmadan "senkron" sayilirdi.
+      while (this._pending){
+        const toSend = JSON.parse(JSON.stringify(this._pending));
+        this._setStatus('syncing');
+        try {
+          const prev = this._lastSynced || { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
+          await this._syncTable('borc_cards', prev.cards, toSend.cards, r => ({ id:r.id, user_id:this._uid, ad:r.name, cutoff_day:r.cutoffDay, pay_day:r.payDay, is_default:!!r.isDefault }));
+          await this._syncTable('borc_people', prev.people, toSend.people, r => ({ id:r.id, user_id:this._uid, ad:r.name, sort_order:r.sortOrder }));
+          await this._syncTable('borc_debts', prev.debts, toSend.debts, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, kind:r.kind, amount:r.amount, date:r.date, aciklama:r.desc||null, count:r.count ?? null, first_due:r.firstDue ?? null, owe:!!r.owe, card_id:r.cardId||null, created_by:r.createdBy ?? null, approved:r.approved !== false }));
+          await this._syncTable('borc_payments', prev.payments, toSend.payments, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, amount:r.amount, date:r.date, dir:r.dir, note:r.note||null, created_by:r.createdBy ?? null, approved:r.approved !== false }));
+          if (JSON.stringify(prev.settings) !== JSON.stringify(toSend.settings)){
+            const { error } = await sb.from('borc_ayarlar').upsert({ user_id:this._uid, cutoff_day:toSend.settings.cutoffDay, pay_day:toSend.settings.payDay, updated_at:new Date().toISOString() });
+            if (error) throw error;
+          }
+          this._lastSynced = toSend;
+          if (JSON.stringify(this._pending) === JSON.stringify(toSend)) this._pending = null;
+        } catch (e) {
+          this._setStatus('pending');
+          return; // dirty flag kalir; bir sonraki save/online/boot tetikleyicisinde tekrar denenir
+        }
       }
-      this._lastSynced = JSON.parse(JSON.stringify(s));
-      this._pending = null;
       localStorage.removeItem(this.dirtyKey);
       this._setStatus('synced');
-    } catch (e) {
-      this._setStatus('pending');
     } finally {
       this._pushing = false;
     }
