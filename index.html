@@ -13,6 +13,21 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Chivo+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<script>
+/* Supabase'den cevap gelmeden once, ilk boyamada yanlis temanin bir an
+   gorunup sonra degismesini (flash) onlemek icin son bilinen tema
+   localStorage'dan senkron okunup erken uygulanir. bootApp() ayni
+   hesabi tekrar yapip gerekirse gunceller. */
+(function(){
+  try{
+    var raw = localStorage.getItem('borcdefteri_v1');
+    var s = raw ? JSON.parse(raw) : null;
+    var t = (s && s.settings && s.settings.theme) || 'dark';
+    var resolved = t === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t;
+    document.documentElement.setAttribute('data-theme', resolved);
+  }catch(e){}
+})();
+</script>
 <style>
 :root{
   --bg:#0F1512;          /* defter kaplaması: koyu yeşil-siyah */
