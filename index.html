@@ -618,6 +618,7 @@ const mapPayRow  = r => ({ id:r.id, personId:r.person_id, amount:Number(r.amount
 
 const Store = {
   key: 'borcdefteri_v1',
+  dirtyKey: 'borcdefteri_v1_dirty',
   _lastSynced: null,
   _uid: null,
   _channel: null,
@@ -630,11 +631,21 @@ const Store = {
   _setStatus(s){ this.status = s; this.statusAt = new Date(); if (this.onStatusChange) this.onStatusChange() },
   _readLocal(){ try{ return JSON.parse(localStorage.getItem(this.key)) }catch(e){ return null } },
   _writeLocal(s){ localStorage.setItem(this.key, JSON.stringify(s)) },
+  _isDirty(){ return localStorage.getItem(this.dirtyKey) === '1' },
 
   async load(){
     const { data: { user } } = await sb.auth.getUser();
     if (!user) return null;
     this._uid = user.id;
+    // Kayit sonrasi kaydet ekranini kapatip uygulama hemen kapatilirsa (bkz. save()
+    // yorumlari) push tamamlanmadan yarida kalabilir; boyle bir kayit varsa asagidaki
+    // fetch'in getirecegi eski uzak veriyle localStorage'daki daha yeni veriyi
+    // ezmeden once onu gondermeyi dene. Basarisiz olursa (cevrimdisi) dirty flag
+    // kalir ve yerel veri asagidaki catch'te oldugu gibi korunur.
+    if (this._isDirty()){
+      const local = this._readLocal();
+      if (local) await this._push(local);
+    }
     try {
       const [ay, pe, de, pa, ca] = await Promise.all([
         sb.from('borc_ayarlar').select('*').eq('user_id', user.id).maybeSingle(),
@@ -665,6 +676,9 @@ const Store = {
 
   async save(s){
     this._writeLocal(s);
+    // push tamamlanana kadar "senkronize olmamis veri var" olarak isaretle -
+    // load() uygulama yeniden acildiginda bunu görüp eski uzak veriyle ezmeden once gonderir.
+    localStorage.setItem(this.dirtyKey, '1');
     await this._push(s);
   },
 
@@ -686,6 +700,7 @@ const Store = {
       }
       this._lastSynced = JSON.parse(JSON.stringify(s));
       this._pending = null;
+      localStorage.removeItem(this.dirtyKey);
       this._setStatus('synced');
     } catch (e) {
       this._setStatus('pending');
