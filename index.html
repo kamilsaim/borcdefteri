@@ -74,8 +74,9 @@ input[type=date]{
 }
 input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0}
 input[type=date]::-webkit-calendar-picker-indicator{margin:0;opacity:.6}
+[data-theme="light"] input[type=date]{color-scheme:light}
 label{display:block;font-size:.78rem;color:var(--muted);margin:14px 0 6px;font-weight:600;letter-spacing:.03em}
-::placeholder{color:#5c6b61}
+::placeholder{color:var(--placeholder)}
 
 /* ---------- Başlık: defter sırtı ---------- */
 header.app{
@@ -137,9 +138,9 @@ h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
   display:inline-block;font-size:.66rem;font-weight:700;letter-spacing:.04em;
   padding:3px 8px;border-radius:99px;vertical-align:middle;
 }
-.chip.odendi{background:#1c3527;color:var(--alacak)}
-.chip.kismi{background:#3a2f18;color:var(--brass)}
-.chip.gecikti{background:#3a221d;color:var(--borc)}
+.chip.odendi{background:var(--chip-ok-bg);color:var(--alacak)}
+.chip.kismi{background:var(--chip-partial-bg);color:var(--brass)}
+.chip.gecikti{background:var(--chip-late-bg);color:var(--borc)}
 .chip.bekliyor{background:var(--surface2);color:var(--muted)}
 
 /* ---------- Aylık görünüm ---------- */
@@ -208,8 +209,8 @@ h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
   width:20px;height:20px;border-radius:6px;border:1.5px solid var(--line);flex-shrink:0;
   display:flex;align-items:center;justify-content:center;font-size:.7rem;font-family:var(--mono);
 }
-.tick.full{background:#1c3527;border-color:var(--alacak);color:var(--alacak)}
-.tick.half{background:#3a2f18;border-color:var(--brass);color:var(--brass)}
+.tick.full{background:var(--chip-ok-bg);border-color:var(--alacak);color:var(--alacak)}
+.tick.half{background:var(--chip-partial-bg);border-color:var(--brass);color:var(--brass)}
 .tick.late{border-color:var(--borc);color:var(--borc)}
 .prow .pd{flex:1;color:var(--muted);font-family:var(--mono);font-size:.78rem}
 .prow .pa{font-family:var(--mono);font-weight:600}
