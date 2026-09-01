@@ -276,6 +276,9 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 }
 .hint b{color:var(--brass);font-family:var(--mono);font-weight:600}
 .seg{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.formrow2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.formrow2>div{min-width:0}
+.formrow2 select{width:100%}
 .seg button{
   border:1px solid var(--line);border-radius:10px;padding:11px;font-weight:700;font-size:.85rem;background:var(--surface2)
 }
@@ -526,9 +529,10 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <label>Toplam tutar (₺)</label>
     <input id="fDebtAmount" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0">
     <div id="fTaksitWrap">
-      <div id="fDebtCardWrap"><label>Kart</label><select id="fDebtCard"></select></div>
-      <label>Taksit sayısı</label>
-      <select id="fDebtCount"></select>
+      <div class="formrow2">
+        <div id="fDebtCardWrap"><label>Kart</label><select id="fDebtCard"></select></div>
+        <div><label>Taksit sayısı</label><select id="fDebtCount"></select></div>
+      </div>
       <label>Alışveriş tarihi</label>
       <input id="fDebtDate" type="date">
       <div class="hint" id="fPreview"></div>
