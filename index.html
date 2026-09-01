@@ -44,6 +44,7 @@
   --chip-partial-bg:#3a2f18;
   --chip-late-bg:#3a221d;
   --placeholder:#5c6b61;
+  --nav-bg:rgba(15,21,18,.96);
   --radius:14px;
   --mono:'Chivo Mono',monospace;
   --sans:'Manrope',system-ui,sans-serif;
@@ -63,6 +64,7 @@
   --chip-partial-bg:#F3E6C8;
   --chip-late-bg:#F5DCD4;
   --placeholder:#8A7F68;
+  --nav-bg:rgba(245,239,225,.96);
 }
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 /* iOS'ta listenin sonuna gelince sayfa lastik gibi yukarı esniyor; fixed olan alt menü
@@ -241,7 +243,7 @@ h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
 /* ---------- Alt menü + FAB ---------- */
 nav.tabs{
   position:fixed;left:0;right:0;bottom:var(--vvgap,0px);z-index:20;
-  background:rgba(15,21,18,.96);backdrop-filter:blur(8px);
+  background:var(--nav-bg);backdrop-filter:blur(8px);
   border-top:1px solid var(--line);
   display:flex;justify-content:space-around;
   padding:8px 8px calc(8px + env(safe-area-inset-bottom));
@@ -250,7 +252,7 @@ nav.tabs{
    içerik görünmesin diye ekran dışına taşan opak dolgu. */
 nav.tabs::after{
   content:'';position:absolute;left:0;right:0;top:100%;height:100vh;
-  background:rgba(15,21,18,.96);
+  background:var(--nav-bg);
 }
 nav.tabs button{
   position:relative;
@@ -454,12 +456,6 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 
   <!-- AYARLAR -->
   <section class="view" id="view-ayarlar">
-    <h2 class="sec">Görünüm</h2>
-    <div class="seg seg3" id="themeSeg">
-      <button data-theme-choice="light">Açık</button>
-      <button data-theme-choice="dark">Koyu</button>
-      <button data-theme-choice="system">Sistem</button>
-    </div>
     <h2 class="sec">Program Bilgisi</h2>
     <div class="card" style="padding:16px;display:flex;align-items:center;gap:12px">
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
@@ -472,8 +468,6 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <div class="hint" id="accountEmail">—</div>
     <div class="hint" id="syncStatus">● —</div>
     <button class="ghost" id="btnLogout" style="color:var(--borc)">Çıkış yap</button>
-    <button class="ghost" id="btnDeleteAccount" style="color:var(--borc)">Hesabımı sil</button>
-    <div class="hint">Bu işlem hesabınızı ve tüm borç/alacak kayıtlarınızı kalıcı olarak siler. <a href="gizlilik-politikasi.html" style="color:var(--muted)">Gizlilik politikası</a></div>
     <h2 class="sec">Bildirimler</h2>
     <div class="card" style="padding:12px">
       <div class="hint" id="pushStatus">—</div>
@@ -491,6 +485,15 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <input type="file" id="fileImport" accept=".json" style="display:none">
       <button class="ghost" id="btnWipe" style="color:var(--borc)">Tüm verileri sil</button>
     </div>
+    <h2 class="sec">Görünüm</h2>
+    <div class="seg seg3" id="themeSeg">
+      <button data-theme-choice="light">Açık</button>
+      <button data-theme-choice="dark">Koyu</button>
+      <button data-theme-choice="system">Sistem</button>
+    </div>
+    <h2 class="sec">Hesabı Sil</h2>
+    <button class="ghost" id="btnDeleteAccount" style="color:var(--borc)">Hesabımı sil</button>
+    <div class="hint">Bu işlem hesabınızı ve tüm borç/alacak kayıtlarınızı kalıcı olarak siler. <a href="gizlilik-politikasi.html" style="color:var(--muted)">Gizlilik politikası</a></div>
   </section>
 </main>
 
