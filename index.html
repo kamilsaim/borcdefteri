@@ -1076,6 +1076,20 @@ matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
   if (state.settings.theme === 'system') applyTheme();
 });
 
+function renderThemeSeg(){
+  document.querySelectorAll('#themeSeg button').forEach(b => {
+    b.classList.toggle('on', b.dataset.themeChoice === (state.settings.theme || 'dark'));
+  });
+}
+document.querySelectorAll('#themeSeg button').forEach(b => {
+  b.onclick = async () => {
+    state.settings.theme = b.dataset.themeChoice;
+    applyTheme();
+    renderThemeSeg();
+    await Store.save(state);
+  };
+});
+
 function render(){
   applyTheme();
   document.getElementById('todayLabel').textContent = fmtDate(todayISO());
@@ -1085,7 +1099,7 @@ function render(){
   if (currentTab==='detay') renderDetay();
   if (currentTab==='paylasilan') renderPaylasilan();
   if (currentTab==='shared') renderSharedDetay();
-  if (currentTab==='ayarlar') renderShareList();
+  if (currentTab==='ayarlar'){ renderShareList(); renderThemeSeg(); }
   renderShareBadge();
 }
 
@@ -2393,6 +2407,7 @@ async function bootApp(){
   fillDebtCardSelect();
   renderSyncStatus();
   renderAccountEmail();
+  renderThemeSeg();
   showApp();
   show(currentTab);
   Push.init().then(renderPushStatus);
