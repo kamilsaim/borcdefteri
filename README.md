@@ -9,7 +9,7 @@
 Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 ödemeleri tek bir dosyada takip edin — hepsi cihazınızda, isteğe bağlı bulut yedeğiyle.
 
-![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.7.3-2E7D5B)
+![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.7.4-2E7D5B)
 ![Platform](https://img.shields.io/badge/platform-Web%20%C2%B7%20PWA-2E7D5B)
 ![Yapı](https://img.shields.io/badge/yap%C4%B1-tek%20dosya%20HTML-0F1512)
 
@@ -82,6 +82,7 @@ bu adım hiç devreye girmez.
 
 | Sürüm | Yenilikler |
 |---|---|
+| **v1.7.4** | Uygulama tam kapatılıp açıldığında (özellikle iOS'ta) ağ henüz hazır olmadan yapılan bir kimlik doğrulama kontrolü başarısız olursa yerel verinin sıfırlanması düzeltildi |
 | **v1.7.3** | Kısa aralıklarla art arda kayıt yapılırsa (biri gönderilirken diğeri kaydedilirse) ikinci kaydın sessizce kaybolabildiği durum düzeltildi |
 | **v1.7.2** | Kaydettikten hemen sonra uygulama kapatılırsa senkronize olmamış verinin eski bulut kopyasıyla ezilip kaybolması düzeltildi |
 | **v1.7.1** | **Bildirimler**: paylaşılan hesaptaki hareketler ve davetler için anlık bildirim (Android uygulaması + iOS/tarayıcı). Nakit borçlara isteğe bağlı son ödeme tarihi |
