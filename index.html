@@ -712,7 +712,7 @@ const Store = {
       const err = ay.error || pe.error || de.error || pa.error || ca.error;
       if (err) throw err;
       const remote = {
-        settings: ay.data ? { cutoffDay: ay.data.cutoff_day, payDay: ay.data.pay_day } : { cutoffDay:23, payDay:1 },
+        settings: ay.data ? { cutoffDay: ay.data.cutoff_day, payDay: ay.data.pay_day, theme: ay.data.theme || 'dark' } : { cutoffDay:23, payDay:1, theme:'dark' },
         people: pe.data.map(r => ({ id:r.id, name:r.ad, sortOrder:r.sort_order })),
         debts: de.data.map(mapDebtRow),
         payments: pa.data.map(mapPayRow),
@@ -758,7 +758,7 @@ const Store = {
           await this._syncTable('borc_debts', prev.debts, toSend.debts, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, kind:r.kind, amount:r.amount, date:r.date, aciklama:r.desc||null, count:r.count ?? null, first_due:r.firstDue ?? null, owe:!!r.owe, card_id:r.cardId||null, created_by:r.createdBy ?? null, approved:r.approved !== false }));
           await this._syncTable('borc_payments', prev.payments, toSend.payments, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, amount:r.amount, date:r.date, dir:r.dir, note:r.note||null, created_by:r.createdBy ?? null, approved:r.approved !== false }));
           if (JSON.stringify(prev.settings) !== JSON.stringify(toSend.settings)){
-            const { error } = await sb.from('borc_ayarlar').upsert({ user_id:this._uid, cutoff_day:toSend.settings.cutoffDay, pay_day:toSend.settings.payDay, updated_at:new Date().toISOString() });
+            const { error } = await sb.from('borc_ayarlar').upsert({ user_id:this._uid, cutoff_day:toSend.settings.cutoffDay, pay_day:toSend.settings.payDay, theme:toSend.settings.theme || 'dark', updated_at:new Date().toISOString() });
             if (error) throw error;
           }
           this._lastSynced = toSend;
@@ -914,7 +914,7 @@ window.addEventListener('online', () => {
 });
 
 let state = {
-  settings: { cutoffDay: 23, payDay: 1 },
+  settings: { cutoffDay: 23, payDay: 1, theme: 'dark' },
   people: [],   // {id, name}
   debts: [],    // {id, personId, kind:'cash_out'|'cash_in'|'installment', amount, date, desc, count, firstDue, cardId}
   payments: [], // {id, personId, amount, date, dir:'in'|'out', note, createdBy, approved}
@@ -2172,7 +2172,7 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
 
 function applyLoaded(loaded){
   // includeShared yalnizca localStorage'da yasar (borc_ayarlar'da kolonu yok) — cihaza ozel gorsel filtre.
-  if (loaded) state = { ...state, ...loaded, settings: { cutoffDay:23, payDay:1, includeShared:false, ...loaded.settings }, cards: loaded.cards || [] };
+  if (loaded) state = { ...state, ...loaded, settings: { cutoffDay:23, payDay:1, includeShared:false, theme:'dark', ...loaded.settings }, cards: loaded.cards || [] };
 }
 
 // Ilk girisin hemen ardindan Supabase istegi bazen basarisiz donuyor (token yeni kurulmus oluyor);
