@@ -1063,7 +1063,21 @@ function show(tab){
   window.scrollTo(0,0);
 }
 
+function applyTheme(){
+  const t = state.settings.theme || 'dark';
+  const resolved = t === 'system' ? (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark') : t;
+  document.documentElement.setAttribute('data-theme', resolved);
+}
+// Sistem temasi 'system' secili degilken de degisebilir; applyTheme() kendi
+// icinde state.settings.theme'e bakip gerekmiyorsa hicbir sey degistirmiyor,
+// bu yuzden dinleyiciyi kosulsuz baglamak guvenli (leak yok, sadece render()
+// disinda da anlik tepki verir).
+matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => {
+  if (state.settings.theme === 'system') applyTheme();
+});
+
 function render(){
+  applyTheme();
   document.getElementById('todayLabel').textContent = fmtDate(todayISO());
   if (currentTab==='ozet') renderOzet();
   if (currentTab==='aylik') renderAylik();
