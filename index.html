@@ -461,7 +461,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.8.0</div>
+        <div class="hint">Sürüm 1.8.1</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -675,6 +675,7 @@ const Store = {
   _channel: null,
   _pushing: false,
   _pending: null,
+  _pushPromise: null,
   status: 'offline', // 'offline' | 'pending' | 'syncing' | 'synced'
   statusAt: null,
   onStatusChange: null,
@@ -703,6 +704,15 @@ const Store = {
     if (this._isDirty()){
       const local = this._readLocal();
       if (local) await this._push(local);
+      // Flush basarisiz olduysa (cevrimdisi, gecici hata, yarida kalmis push) uzak veriyi
+      // CEKMIYORUZ: okuma calissa bile asagidaki _writeLocal(remote) satiri localStorage'daki
+      // henuz gonderilmemis kayitlari eski uzak kopyayla ezer ve veri kalici olarak kaybolur.
+      // Yerel veriyle devam et; status 'pending' oldugu icin bootApp/reloadFromRemote tekrar dener.
+      if (this._isDirty()){
+        this._setStatus('pending');
+        this._subscribeRealtime();
+        return local || this._readLocal();
+      }
     }
     try {
       const [ay, pe, de, pa, ca] = await Promise.all([
@@ -743,9 +753,16 @@ const Store = {
   async _push(s){
     if (!this._uid) return;
     this._pending = s;
-    if (this._pushing) return; // zaten suren push bitince asagidaki dongu en guncel _pending'i otomatik gonderir
+    // Zaten suren bir push varsa onun sozunu dondur: dongu en guncel _pending'i otomatik
+    // gonderecek, ama cagiran (ozellikle load()) "gonderim bitti" sanip yerel veriyi
+    // eski uzak kopyayla ezmesin diye gercekten beklemeli.
+    if (this._pushing) return this._pushPromise;
     this._pushing = true;
-    try {
+    this._pushPromise = this._pushLoop();
+    try { await this._pushPromise } finally { this._pushing = false; this._pushPromise = null }
+  },
+
+  async _pushLoop(){
       // state tek bir mutable nesne oldugu icin (referansi push suresince degismez), her
       // turda anlik icerigini donduruyoruz: agdaki bekleme sirasinda yeni bir kayit gelirse
       // (state yerinde degisir) bunu, push bittikten sonra icerik karsilastirmasiyla yakalayip
@@ -773,9 +790,6 @@ const Store = {
       }
       localStorage.removeItem(this.dirtyKey);
       this._setStatus('synced');
-    } finally {
-      this._pushing = false;
-    }
   },
 
   async _syncTable(table, prevRows, curRows, toRow){
@@ -914,6 +928,14 @@ const SharedStore = {
 window.addEventListener('online', () => {
   if (Store._pending) Store._push(Store._pending);
   else if (Store.status === 'offline' && Store._uid) reloadFromRemote();
+});
+
+/* Kullanici uygulamayi arka plana alirken (cogunlukla kapatmadan hemen once) gonderilmemis
+   kayit varsa son bir deneme yap; basarisiz olursa dirty bayragi durur ve load() yerel
+   veriyi korur. Geri donuste de bekleyeni tekrar gondermeyi dene. */
+document.addEventListener('visibilitychange', () => {
+  if (!Store._uid || !Store._isDirty()) return;
+  Store._push(Store._pending || state);
 });
 
 let state = {
