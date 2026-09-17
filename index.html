@@ -229,6 +229,21 @@ h2.sec::after{content:"";flex:1;height:1px;background:var(--line)}
 .tick.full{background:var(--chip-ok-bg);border-color:var(--alacak);color:var(--alacak)}
 .tick.half{background:var(--chip-partial-bg);border-color:var(--brass);color:var(--brass)}
 .tick.late{border-color:var(--borc);color:var(--borc)}
+/* Henuz Supabase'e gonderilmemis satir isareti */
+.pendmark{font-size:.72rem;line-height:1;opacity:.85;flex-shrink:0}
+/* Gonderilmemis kayit varken header'in altinda gorunen uyari seridi */
+.syncbar{
+  position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:10px;
+  padding:8px 14px;background:var(--chip-partial-bg);border-bottom:1px solid var(--brass-dim);
+  color:var(--brass);font-size:.8rem;font-weight:700;
+}
+.syncbar[hidden]{display:none}
+.syncbar-msg{flex:1;min-width:0}
+.syncbar-btn{
+  flex-shrink:0;border:1px solid var(--brass);background:transparent;color:var(--brass);
+  border-radius:8px;padding:5px 10px;font:inherit;font-size:.75rem;cursor:pointer;
+}
+.syncbar-btn:disabled{opacity:.5;cursor:default}
 .prow .pd{flex:1;color:var(--muted);font-family:var(--mono);font-size:.78rem}
 .prow .pa{font-family:var(--mono);font-weight:600}
 .debthead{display:flex;align-items:center;gap:8px;padding:12px 0 6px}
@@ -362,6 +377,11 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
   <div class="ruled"></div>
 </header>
 
+<div id="syncBanner" class="syncbar" hidden>
+  <span class="syncbar-msg" id="syncBannerMsg"></span>
+  <button type="button" class="syncbar-btn" id="syncBannerBtn">Şimdi gönder</button>
+</div>
+
 <main id="appMain" style="display:none">
   <!-- ÖZET -->
   <section class="view active" id="view-ozet">
@@ -461,7 +481,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.8.1</div>
+        <div class="hint">Sürüm 1.9.0</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -670,6 +690,7 @@ const mapPayRow  = r => ({ id:r.id, personId:r.person_id, amount:Number(r.amount
 const Store = {
   key: 'borcdefteri_v1',
   dirtyKey: 'borcdefteri_v1_dirty',
+  lastSyncKey: 'borcdefteri_v1_lastsync',
   _lastSynced: null,
   _uid: null,
   _channel: null,
@@ -685,6 +706,44 @@ const Store = {
   _writeLocal(s){ localStorage.setItem(this.key, JSON.stringify(s)) },
   _isDirty(){ return localStorage.getItem(this.dirtyKey) === '1' },
 
+  /* _lastSynced (son basariyla gonderilen kopya) yalnizca bellekte dursaydi, uygulama
+     kapanip acildiginda silmeler prev'siz kalir ve _syncTable hicbir satiri silemezdi:
+     cevrimdisiyken silinen kayit bir sonraki yuklemede geri dirilirdi. */
+  _setLastSynced(s){
+    this._lastSynced = s;
+    try { localStorage.setItem(this.lastSyncKey, JSON.stringify(s)) } catch(e) {}
+  },
+  _restoreLastSynced(){
+    if (this._lastSynced) return;
+    try { this._lastSynced = JSON.parse(localStorage.getItem(this.lastSyncKey)) || null } catch(e) { this._lastSynced = null }
+  },
+
+  /* Bekleyen (henuz gonderilmemis) satir sayisi. _lastSynced hic olusmamissa sayi
+     bilinmiyor demektir -> null; arayuz o zaman sayisiz metin gosterir. */
+  pendingCount(s){
+    if (!this._isDirty()) return 0;
+    const prev = this._lastSynced;
+    if (!prev || !s) return null;
+    let n = 0;
+    for (const k of ['people','debts','payments','cards']){
+      const a = prev[k] || [], b = s[k] || [];
+      const am = new Map(a.map(r=>[r.id, JSON.stringify(r)]));
+      const bm = new Map(b.map(r=>[r.id, JSON.stringify(r)]));
+      for (const [id, json] of bm) if (am.get(id) !== json) n++;
+      for (const id of am.keys()) if (!bm.has(id)) n++;
+    }
+    if (JSON.stringify(prev.settings) !== JSON.stringify(s.settings)) n++;
+    return n;
+  },
+
+  /* Tek bir borc/odeme satiri gonderildi mi? (satir rozeti icin) */
+  isRowPending(kind, row){
+    if (!this._isDirty()) return false;
+    if (!this._lastSynced) return true;
+    const prev = (this._lastSynced[kind] || []).find(r => r.id === row.id);
+    return !prev || JSON.stringify(prev) !== JSON.stringify(row);
+  },
+
   async load(){
     // getSession() (bootApp'i tetikleyen kontrol) yerelden okur; getUser() ise token'i
     // Supabase sunucusunda dogrulamak icin gercek bir ag istegi atar. Uygulama tam
@@ -693,6 +752,7 @@ const Store = {
     // anda cikplak null donersek bootApp() state'i sifirlar, migrateCards() da bos kart
     // dizisini "yeni kullanici" sanip localStorage'daki gercek veriyi ezer. Asagidaki catch
     // blogundaki gibi yerel onbellege dusmek bu kaybi engeller.
+    this._restoreLastSynced();
     const { data: { user } } = await sb.auth.getUser();
     if (!user){ this._setStatus('offline'); return this._readLocal() }
     this._uid = user.id;
@@ -731,7 +791,7 @@ const Store = {
         payments: pa.data.map(mapPayRow),
         cards: ca.data.map(r => ({ id:r.id, name:r.ad, cutoffDay:r.cutoff_day, payDay:r.pay_day, isDefault:!!r.is_default })),
       };
-      this._lastSynced = JSON.parse(JSON.stringify(remote));
+      this._setLastSynced(JSON.parse(JSON.stringify(remote)));
       this._writeLocal(remote);
       this._setStatus('synced');
       this._subscribeRealtime();
@@ -781,7 +841,7 @@ const Store = {
             const { error } = await sb.from('borc_ayarlar').upsert({ user_id:this._uid, cutoff_day:toSend.settings.cutoffDay, pay_day:toSend.settings.payDay, theme:toSend.settings.theme || 'dark', updated_at:new Date().toISOString() });
             if (error) throw error;
           }
-          this._lastSynced = toSend;
+          this._setLastSynced(toSend);
           if (JSON.stringify(this._pending) === JSON.stringify(toSend)) this._pending = null;
         } catch (e) {
           this._setStatus('pending');
@@ -1126,11 +1186,15 @@ function render(){
   if (currentTab==='shared') renderSharedDetay();
   if (currentTab==='ayarlar'){ renderShareList(); renderThemeSeg(); }
   renderShareBadge();
+  renderSyncBanner();
 }
 
-function rowHTML({name, desc, amount, cls, chip}){
+/* Henuz gonderilmemis kayit isareti (senkron seridiyle ayni bilgi, satir bazinda). */
+const pendMark = (kind, row) => Store.isRowPending(kind, row) ? '<span class="pendmark" title="Henüz gönderilmedi">⏳</span>' : '';
+
+function rowHTML({name, desc, amount, cls, chip, pending}){
   return `<div class="row">
-    <div class="who"><div class="n">${name}</div><div class="d">${desc}</div></div>
+    <div class="who"><div class="n">${pending?'<span class="pendmark" title="Henüz gönderilmedi">⏳</span>':''}${name}</div><div class="d">${desc}</div></div>
     ${chip?`<span class="chip ${chip}">${CHIP[chip]}</span>`:''}
     <div class="amt ${cls||''}">${amount}</div>
   </div>`;
@@ -1234,7 +1298,8 @@ function renderAylik(){
           desc: (it.debt.kind==='installment' ? (isTek?'Tek çekim · ':`${it.idx+1}/${it.debt.count}. taksit · `) : (it.debt.kind==='cash_in'?'Nakit borç · ':'Nakit alacak · ')) + fmtShort(it.due) + (it.debt.desc?` · ${it.debt.desc}`:'') + (it.paid>0?` · ${TL(it.paid)} ödendi`:''),
           amount: (side==='recv'?'+':'−') + TL(rem),
           cls: side==='recv'?'pos':'neg',
-          chip: itemStatus(it, ref)
+          chip: itemStatus(it, ref),
+          pending: Store.isRowPending('debts', it.debt)
         });
         (isTek ? rowsTek : rows).push(row);
       });
@@ -1492,7 +1557,7 @@ function renderDetay(){
         <span class="pa">${TL(it.amount)}</span></div>`;
     }).join('');
     return `<div class="debthead">
-        <div class="t">${kindTxt}${d.desc?` · <span style="font-weight:500;color:var(--muted)">${d.desc}</span>`:''}<br><span style="font-weight:400;font-size:.74rem;color:var(--muted)">${fmtDate(d.date)}</span></div>
+        <div class="t">${pendMark('debts', d)}${kindTxt}${d.desc?` · <span style="font-weight:500;color:var(--muted)">${d.desc}</span>`:''}<br><span style="font-weight:400;font-size:.74rem;color:var(--muted)">${fmtDate(d.date)}</span></div>
         <span class="amt mut" style="font-size:.85rem">${TL(d.amount)}</span>
         <button class="edit" data-editdebt="${d.id}">✎</button>
         <button class="del" data-deldebt="${d.id}">🗑</button>
@@ -1508,7 +1573,7 @@ function renderDetay(){
                : st==='gecikti'? '<span class="tick late">!</span>'
                : '<span class="tick"></span>';
     const rem = it ? Math.round((it.amount-it.paid)*100)/100 : d.amount;
-    return `<div class="prow">${tick}
+    return `<div class="prow">${tick}${pendMark('debts', d)}
         <span class="pd">${fmtShort(d.date)}${d.owe?' · Başkasının kartı':''}${d.desc?` · ${d.desc}`:''}</span>
         ${it&&it.paid>0&&rem>0?`<span style="font-size:.72rem;color:var(--muted)">${TL(it.paid)} /</span>`:''}
         <span class="pa">${TL(d.amount)}</span>
@@ -1520,7 +1585,7 @@ function renderDetay(){
   const pays = state.payments.filter(x=>x.personId===p.id).sort((a,b)=>a.date<b.date?1:-1);
   document.getElementById('dPays').innerHTML = pays.length ? pays.map(x => `
     <div class="row">
-      <div class="who"><div class="n" style="font-weight:600;font-size:.86rem">${x.approved===false?'<span class="unapproved"></span>':''}${x.dir==='in'?'Tahsilat':'Ödeme'}</div>
+      <div class="who"><div class="n" style="font-weight:600;font-size:.86rem">${x.approved===false?'<span class="unapproved"></span>':''}${pendMark('payments', x)}${x.dir==='in'?'Tahsilat':'Ödeme'}</div>
       <div class="d">${fmtDate(x.date)}${x.note?` · ${x.note}`:''}${x.createdBy && x.createdBy!==Store._uid?' · karşı taraf ekledi':''}</div></div>
       <div class="amt ${x.dir==='in'?'pos':'neg'}">${x.dir==='in'?'+':'−'}${TL(x.amount)}</div>
       ${x.approved===false?`<button class="edit" data-approvepay="${x.id}">✓</button>`:''}
@@ -1534,6 +1599,7 @@ function renderDetay(){
     openDebtForm(d.kind==='installment'?(d.owe?'taksit_borc':'taksit'):d.kind, d.personId, d);
   });
   document.querySelectorAll('[data-deldebt]').forEach(b => b.onclick = async () => {
+    if (!guardDelete()) return;
     if (!await askConfirm('Bu borç kaydı ve taksit planı silinsin mi?')) return;
     state.debts = state.debts.filter(d=>d.id!==b.dataset.deldebt);
     await Store.save(state); render();
@@ -1557,6 +1623,7 @@ function renderDetay(){
     openPayForm(x.dir, x.personId, x);
   });
   document.querySelectorAll('[data-delpay]').forEach(b => b.onclick = async () => {
+    if (!guardDelete()) return;
     if (!await askConfirm('Bu ödeme kaydı silinsin mi?')) return;
     state.payments = state.payments.filter(x=>x.id!==b.dataset.delpay);
     await Store.save(state); render();
@@ -1583,6 +1650,16 @@ document.querySelectorAll('.overlay').forEach(o => {
 /* ---- Özel onay penceresi (native confirm() yerine) ---- */
 // Cogu onay bir silme oldugu icin varsayilan etiket "Sil"; silme disindaki
 // islemler kendi fiilini gecer (cikis, reddet, kaldir...).
+/* Cevrimdisiyken silme kapali: silme islemi ancak _lastSynced ile fark alinarak
+   Supabase'e tasinabiliyor; baglanti yokken yapilan silmenin karsi tarafa hic ulasmama
+   ve bir sonraki yuklemede kaydin geri dirilme riski var. Ekleme/duzenleme serbest -
+   onlar yerelde guvenle bekleyip baglanti gelince gonderiliyor. */
+function guardDelete(){
+  if (navigator.onLine !== false && Store.status !== 'offline' && Store.status !== 'pending') return true;
+  toast('Çevrimdışıyken silme yapılamaz. Bağlantı gelince tekrar deneyin.');
+  return false;
+}
+
 function askConfirm(msg, okLabel = 'Sil'){
   return new Promise(resolve => {
     document.getElementById('cMsg').textContent = msg;
@@ -2018,6 +2095,7 @@ document.getElementById('mPrev').onclick = () => { monthCursor.m--; if(monthCurs
 document.getElementById('mNext').onclick = () => { monthCursor.m++; if(monthCursor.m>11){monthCursor.m=0;monthCursor.y++} render() };
 
 document.getElementById('btnDelPerson').onclick = async () => {
+  if (!guardDelete()) return;
   if (!await askConfirm('Bu kişi, tüm borçları ve ödemeleriyle birlikte silinsin mi?')) return;
   state.debts = state.debts.filter(d=>d.personId!==currentPerson);
   state.payments = state.payments.filter(p=>p.personId!==currentPerson);
@@ -2066,6 +2144,7 @@ async function deleteCard(id){
   const inUse = state.debts.some(d => d.kind==='installment' && d.cardId===id);
   if (inUse){ alert('Bu karta bağlı borçlar var. Önce onları başka bir karta taşıyın veya silin.'); return }
   if (state.cards.length<=1){ alert('En az bir kart kalmalı.'); return }
+  if (!guardDelete()) return;
   if (!await askConfirm('Bu kart silinsin mi?')) return;
   const wasDefault = state.cards.find(c=>c.id===id)?.isDefault;
   state.cards = state.cards.filter(c=>c.id!==id);
@@ -2153,6 +2232,7 @@ document.getElementById('fileImport').onchange = async e => {
   } catch { alert('Geçersiz yedek dosyası') }
 };
 document.getElementById('btnWipe').onclick = async () => {
+  if (!guardDelete()) return;
   if (!await askConfirm('TÜM veriler silinecek. Emin misiniz?')) return;
   if (!await askConfirm('Son kez soruyorum: geri alınamaz!')) return;
   // Paylasilan hesaplar baskasinin verisi; "kendi verilerimi sil" onlari kapsamaz.
@@ -2170,7 +2250,36 @@ function renderSyncStatus(){
   const t = Store.statusAt ? Store.statusAt.toLocaleTimeString('tr-TR',{hour:'2-digit',minute:'2-digit'}) : '';
   el.innerHTML = `● ${SYNC_LABEL[Store.status]||'—'}${t && Store.status==='synced' ? ' · '+t : ''}`;
 }
-Store.onStatusChange = renderSyncStatus;
+/* Gonderilmemis veri varken header'in altinda gorunen serit. Ayarlar'daki kucuk
+   satirin aksine her sekmede goruldugu icin kullanici kaydin beklediğini fark eder. */
+function renderSyncBanner(){
+  const bar = document.getElementById('syncBanner');
+  if (!bar) return;
+  if (!Store._isDirty() || document.getElementById('authScreen').classList.contains('open')){
+    bar.hidden = true;
+    return;
+  }
+  const n = Store.pendingCount(state);
+  const kayit = n == null ? 'Kayıtlarınız' : `${n} kayıt`;
+  const msg = Store.status === 'syncing'
+    ? '⟳ Gönderiliyor…'
+    : (Store.status === 'offline'
+        ? `⚠ Çevrimdışı — ${kayit} gönderilmedi`
+        : `⚠ Gönderilemedi — ${kayit} bekliyor`);
+  bar.hidden = false;
+  document.getElementById('syncBannerMsg').textContent = msg;
+  document.getElementById('syncBannerBtn').disabled = Store.status === 'syncing';
+}
+
+document.getElementById('syncBannerBtn').onclick = async () => {
+  const btn = document.getElementById('syncBannerBtn');
+  btn.disabled = true;
+  await Store._push(state);
+  renderSyncBanner();
+  toast(Store._isDirty() ? 'Gönderilemedi, bağlantınızı kontrol edin.' : 'Bekleyen kayıtlar gönderildi.');
+};
+
+Store.onStatusChange = () => { renderSyncStatus(); renderSyncBanner() };
 
 /* Giriş / Çıkış */
 function showApp(){
@@ -2186,9 +2295,19 @@ function showAuthScreen(){
   document.getElementById('appMain').style.display = 'none';
   document.getElementById('fab').style.display = 'none';
   document.getElementById('appNav').style.display = 'none';
+  renderSyncBanner();
 }
 document.getElementById('btnLogout').onclick = async () => {
+  // Cikista yerel onbellek temizlenmezse, ayni cihazda BASKA bir hesapla girildiginde
+  // load() onceki kullanicinin gonderilmemis verisini yeni hesabin kimligiyle gonderir.
+  // Bu yuzden once gondermeyi dene, gonderilemiyorsa kullaniciyi uyar.
+  if (Store._isDirty()){
+    await Store._push(state);
+    if (Store._isDirty() && !await askConfirm('Gönderilmemiş kayıtlarınız var. Çıkarsanız bu kayıtlar kaybolur. Yine de çıkılsın mı?', 'Yine de çık')) return;
+  }
   if (!await askConfirm('Çıkış yapılsın mı?', 'Çıkış yap')) return;
+  try { localStorage.removeItem(Store.key); localStorage.removeItem(Store.dirtyKey); localStorage.removeItem(Store.lastSyncKey); } catch(e) {}
+  Store._lastSynced = null; Store._pending = null;
   await Push.release();
   Store._unsubscribeRealtime();
   SharedStore._unsubscribe();
@@ -2212,7 +2331,8 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
   await Push.release();
   Store._unsubscribeRealtime();
   SharedStore._unsubscribe();
-  try { localStorage.removeItem(Store.key); } catch {}
+  try { localStorage.removeItem(Store.key); localStorage.removeItem(Store.dirtyKey); localStorage.removeItem(Store.lastSyncKey); } catch {}
+  Store._lastSynced = null; Store._pending = null;
   await sb.auth.signOut();
   state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[], shares:[], sharedAccounts:[] };
   showAuthScreen();
