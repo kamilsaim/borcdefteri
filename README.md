@@ -40,7 +40,7 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 - Her kişi kartında bu ay + sonraki **2 ay için ödeme tahmini** küçük etiketler halinde
 - Kişi detayında borçlar "Borçlar & Taksitler" ve "Tek Çekimler" olarak ayrılır, tam plan dökümüyle
 - Kişi kartları **basılı tutup sürükleyerek** istediğiniz sıraya dizilir, sıralama cihazlar arası senkronlanır
-- **📤 Özet kart**: kişinin güncel durumunu (kalemler, ödenen, kalan, geciken, yaklaşan aylar) görsel bir kart olarak üretip WhatsApp vb. ile kendisine gönderin — karşı tarafın uygulamaya ihtiyacı yok
+- **📤 Özet kart**: kişinin güncel durumunu (kalemler, ödenen, kalan, geciken, bu ay + sonraki 4 ayın beklenen tutarları) görsel bir kart olarak üretip WhatsApp vb. ile kendisine gönderin — karşı tarafın uygulamaya ihtiyacı yok
 
 ### ⇄ Paylaşılan Hesaplar
 - Bir kişi kartını **o kişinin kendi hesabıyla paylaşın** — karşı taraf hesabı kendi perspektifinden (**aynalanmış**) görür
