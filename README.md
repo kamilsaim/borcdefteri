@@ -10,7 +10,7 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 ödemeleri tek bir dosyada takip edin — hesabınıza bağlı bulut senkronu ve
 çevrimdışı çalışma ile.
 
-![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.9.0-2E7D5B)
+![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.10.0-2E7D5B)
 ![Platform](https://img.shields.io/badge/platform-Web%20%C2%B7%20PWA-2E7D5B)
 ![Yapı](https://img.shields.io/badge/yap%C4%B1-tek%20dosya%20HTML-0F1512)
 
@@ -40,6 +40,7 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 - Her kişi kartında bu ay + sonraki **2 ay için ödeme tahmini** küçük etiketler halinde
 - Kişi detayında borçlar "Borçlar & Taksitler" ve "Tek Çekimler" olarak ayrılır, tam plan dökümüyle
 - Kişi kartları **basılı tutup sürükleyerek** istediğiniz sıraya dizilir, sıralama cihazlar arası senkronlanır
+- **📤 Özet kart**: kişinin güncel durumunu (kalemler, ödenen, kalan, geciken, yaklaşan aylar) görsel bir kart olarak üretip WhatsApp vb. ile kendisine gönderin — karşı tarafın uygulamaya ihtiyacı yok
 
 ### ⇄ Paylaşılan Hesaplar
 - Bir kişi kartını **o kişinin kendi hesabıyla paylaşın** — karşı taraf hesabı kendi perspektifinden (**aynalanmış**) görür
@@ -100,6 +101,7 @@ silebilirsiniz.
 
 | Sürüm | Yenilikler |
 |---|---|
+| **v1.10.0** | **Özet kart**: kişi detayından o kişinin durumunu PNG kart olarak üretip paylaşma |
 | **v1.9.0** | **Çevrimdışı görünürlüğü**: gönderilmemiş kayıt varken üstte uyarı şeridi ve "Şimdi gönder" düğmesi, bekleyen satırlarda ⏳ işareti; bağlantı yokken silme engellenir; çevrimdışı yapılan silmeler artık bağlantı gelince gönderilir; çıkışta bekleyen kayıt uyarısı |
 | **v1.8.1** | Gönderilemeyen (senkronlanmamış) kayıtların, uygulama yeniden açıldığında sunucudaki eski veriyle ezilerek kaybolması düzeltildi; arka plana alınırken bekleyen kayıt için son bir gönderim denemesi eklendi |
 | **v1.8.0** | **Açık Tema**: Ayarlar'dan Açık/Koyu/Sistem tema seçimi, hesaba bağlı olarak tüm cihazlara senkronlanır |
