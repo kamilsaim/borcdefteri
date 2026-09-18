@@ -6,3 +6,4 @@ supabase/
 # Sirlar - asla commit edilmemeli
 *firebase-adminsdk*.json
 google-services.json
+.superpowers/
