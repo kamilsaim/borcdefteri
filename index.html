@@ -1338,6 +1338,45 @@ function personMonthDue(personId, ym, ds = state){
   return Math.round((recv-pay)*100)/100;
 }
 
+/* ---- Ozet kart verisi (salt-okunur, DOM'a dokunmaz) ---- */
+function summaryCardData(personId, ds = state, ref = todayISO()){
+  const person = ds.people.find(x => x.id === personId);
+  const rowOf = d => {
+    const label = d.kind === 'installment' && d.count > 1
+      ? (d.desc || 'Taksitli alışveriş') + ' · ' + d.count + ' taksit'
+      : (d.desc || (d.kind === 'cash_out' ? 'Nakit verildi' : d.kind === 'cash_in' ? 'Nakit alındı' : 'Tek çekim'))
+        + ' · ' + fmtShort(d.date);
+    return { id: d.id, label, amount: d.amount };
+  };
+  const side = (s) => ds.debts.filter(d => {
+    if (d.personId !== personId) return false;
+    if (s === 'recv') return d.kind === 'cash_out' || (d.kind === 'installment' && !d.owe);
+    return d.kind === 'cash_in' || (d.kind === 'installment' && d.owe);
+  }).map(rowOf);
+
+  const r = personItems(personId, 'recv', ds), p = personItems(personId, 'pay', ds);
+  const paidTotal = Math.round(
+    ([...r.items, ...p.items].reduce((s, it) => s + it.paid, 0) + r.credit + p.credit) * 100) / 100;
+  const overdue = Math.round(
+    [...r.items, ...p.items]
+      .filter(it => itemStatus(it, ref) === 'gecikti')
+      .reduce((s, it) => s + it.amount - it.paid, 0) * 100) / 100;
+  const b = personBalance(personId, ds);
+  const months = nextMonths(3).map(mo => ({ label: mo.label, amount: personMonthDue(personId, mo.ym, ds) }));
+
+  const recv = side('recv'), pay = side('pay');
+  return {
+    name: person ? person.name : '',
+    date: ref,
+    recv, pay,
+    paidTotal,
+    net: Math.round((b.alacak - b.borc) * 100) / 100,
+    overdue,
+    months,
+    empty: recv.length === 0 && pay.length === 0,
+  };
+}
+
 function renderKisiler(){
   const wrap = document.getElementById('listKisiler');
   if (!state.people.length){ wrap.innerHTML = '<div class="empty">Henüz kişi yok.<br>+ ile ilk kaydı ekleyin.</div>'; return }
