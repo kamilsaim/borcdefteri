@@ -1391,7 +1391,7 @@ function summaryCardData(personId, ds = state, ref = todayISO()){
       .filter(it => itemStatus(it, ref) === 'gecikti')
       .reduce((s, it) => s + it.amount - it.paid, 0) * 100) / 100;
   const b = personBalance(personId, ds);
-  const months = nextMonths(3).map(mo => ({ label: mo.label, amount: personMonthDue(personId, mo.ym, ds) }));
+  const months = nextMonths(5).map(mo => ({ label: mo.label, amount: personMonthDue(personId, mo.ym, ds) }));
 
   const recv = side('recv'), pay = side('pay');
   return {
@@ -1956,8 +1956,8 @@ function renderSummaryCard(personId){
     parts.push(`<div class="sc-row"><span class="neg">Geciken</span><span class="neg">${TL(c.overdue)}</span></div>`);
   if (c.months.some(m => m.amount !== 0)){
     parts.push('<div class="sc-sec">Yaklaşan</div>');
-    parts.push(c.months.map(m =>
-      `<div class="sc-row"><span>${m.label}</span><span>${m.amount===0?'—':(m.amount>0?'+':'−')+TL(Math.abs(m.amount))}</span></div>`).join(''));
+    parts.push(c.months.filter(m => m.amount !== 0).map(m =>
+      `<div class="sc-row"><span>${m.label}</span><span>${(m.amount>0?'+':'−')+TL(Math.abs(m.amount))}</span></div>`).join(''));
   }
   parts.push('<div class="sc-foot">📒 Borç Defteri</div>');
   document.getElementById('sumCard').innerHTML = parts.join('');
