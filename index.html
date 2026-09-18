@@ -290,6 +290,19 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
   display:none;align-items:center;justify-content:center;padding:20px;
 }
 .overlay.open{display:flex}
+.sumwrap{margin:10px 0 14px;display:flex;justify-content:center}
+.sumcard{width:320px;max-width:100%;background:var(--surface);color:var(--text);
+  border:1px solid var(--line);border-radius:14px;padding:16px;font-size:.82rem;line-height:1.45}
+.sumcard .sc-name{font-weight:800;font-size:1.05rem}
+.sumcard .sc-date{color:var(--muted);font-size:.7rem}
+.sumcard .sc-sec{font-size:.64rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:12px 0 4px}
+.sumcard .sc-row{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-bottom:1px solid var(--line)}
+.sumcard .sc-row:last-child{border-bottom:0}
+.sumcard .sc-net{display:flex;justify-content:space-between;align-items:baseline;margin-top:10px;padding-top:10px;border-top:1px solid var(--line)}
+.sumcard .sc-net b:last-child{font-size:1.45rem}
+.sumcard .sc-foot{text-align:center;color:var(--muted);font-size:.66rem;margin-top:12px;opacity:.8}
+.sumcard .pos{color:var(--alacak)}
+.sumcard .neg{color:var(--borc)}
 .toast{
   position:fixed;left:50%;transform:translateX(-50%);
   bottom:calc(90px + var(--vvgap,0px));z-index:60;
@@ -435,6 +448,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <button class="back" id="btnBack">‹</button>
       <h3 id="dName"></h3>
       <button class="share" id="btnShare" title="Hesabı paylaş">⇄</button>
+      <button class="share" id="btnSummaryCard" title="Özet kart gönder">📤</button>
       <button class="del" id="btnDelPerson">🗑</button>
     </div>
     <div class="balance" id="dBalance"></div>
@@ -580,6 +594,19 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <div class="hint">Bu kayıt karşı tarafta "onay bekliyor" işaretiyle görünür.</div>
     <button id="fSharedPaySave">Kaydet</button>
     <button class="ghost" id="fSharedPayDelete" style="color:var(--borc);display:none">Bu kaydı sil</button>
+  </div>
+</div>
+
+<!-- ÖZET KART -->
+<div class="overlay" id="ovSummaryCard">
+  <div class="sheet">
+    <button class="sheet-close" data-close>×</button>
+    <div class="grip"></div>
+    <h3>Özet Kart</h3>
+    <div class="sumwrap"><div class="sumcard" id="sumCard"></div></div>
+    <button id="btnSumShare">Paylaş</button>
+    <button class="ghost" id="btnSumDownload">Resmi indir</button>
+    <div class="hint" id="sumHint" style="margin-top:8px"></div>
   </div>
 </div>
 
@@ -1910,6 +1937,108 @@ guardSave('fPaySave', async () => {
 });
 
 /* ---- Paylaşım ---- */
+/* ---- Ozet kart: render, PNG uretimi, kademeli paylasim ---- */
+function renderSummaryCard(personId){
+  const c = summaryCardData(personId);
+  const rows = list => list.map(r =>
+    `<div class="sc-row"><span>${r.label}</span><span>${TL(r.amount)}</span></div>`).join('');
+  const both = c.recv.length && c.pay.length;
+  const parts = [];
+  parts.push(`<div class="sc-name">${c.name}</div><div class="sc-date">${fmtDate(c.date)} itibarıyla</div>`);
+  if (c.empty) parts.push('<div class="sc-sec">Kayıtlı işlem yok</div>');
+  if (c.recv.length){ if (both) parts.push('<div class="sc-sec">Alacak</div>'); parts.push(rows(c.recv)) }
+  if (c.pay.length){ if (both) parts.push('<div class="sc-sec">Borç</div>'); parts.push(rows(c.pay)) }
+  if (c.paidTotal > 0)
+    parts.push(`<div class="sc-row"><span>Ödenen</span><span class="neg">−${TL(c.paidTotal)}</span></div>`);
+  parts.push(`<div class="sc-net"><b>Kalan</b><b class="${c.net>0?'pos':c.net<0?'neg':''}">${
+    (c.net>0?'+':c.net<0?'−':'')+TL(Math.abs(c.net))}</b></div>`);
+  if (c.overdue > 0)
+    parts.push(`<div class="sc-row"><span class="neg">Geciken</span><span class="neg">${TL(c.overdue)}</span></div>`);
+  if (c.months.some(m => m.amount !== 0)){
+    parts.push('<div class="sc-sec">Yaklaşan</div>');
+    parts.push(c.months.map(m =>
+      `<div class="sc-row"><span>${m.label}</span><span>${m.amount===0?'—':(m.amount>0?'+':'−')+TL(Math.abs(m.amount))}</span></div>`).join(''));
+  }
+  parts.push('<div class="sc-foot">📒 Borç Defteri</div>');
+  document.getElementById('sumCard').innerHTML = parts.join('');
+}
+
+function openSummaryCard(){
+  if (!currentPerson) return;
+  renderSummaryCard(currentPerson);
+  document.getElementById('sumHint').textContent = '';
+  const ok = typeof html2canvas === 'function';
+  document.getElementById('btnSumShare').style.display = ok ? '' : 'none';
+  document.getElementById('btnSumDownload').style.display = ok ? '' : 'none';
+  if (!ok) document.getElementById('sumHint').textContent =
+    'Görsel üretilemedi — karta bakıp ekran görüntüsü alabilirsin.';
+  openSheet('ovSummaryCard');
+}
+
+async function summaryCardBlob(){
+  if (typeof html2canvas !== 'function') throw new Error('html2canvas yok');
+  const el = document.getElementById('sumCard');
+  const bg = getComputedStyle(el).backgroundColor;
+  const canvas = await html2canvas(el, { scale: 2, backgroundColor: bg, logging: false });
+  return await new Promise(res => canvas.toBlob(res, 'image/png'));
+}
+
+function summaryFileName(){
+  const p = state.people.find(x => x.id === currentPerson);
+  const safe = (p ? p.name : 'ozet').replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '');
+  return safe + '-' + todayISO() + '.png';
+}
+
+function downloadBlob(blob, name){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+async function shareSummaryCard(){
+  const btn = document.getElementById('btnSumShare');
+  btn.disabled = true; btn.textContent = 'Hazırlanıyor…';
+  try {
+    const blob = await summaryCardBlob();
+    const name = summaryFileName();
+    const cap = window.Capacitor && window.Capacitor.Plugins;
+    if (cap && cap.Share && cap.Filesystem){
+      const b64 = await new Promise(res => {
+        const fr = new FileReader();
+        fr.onload = () => res(String(fr.result).split(',')[1]);
+        fr.readAsDataURL(blob);
+      });
+      const w = await cap.Filesystem.writeFile({ path: name, data: b64, directory: 'CACHE' });
+      await cap.Share.share({ title: 'Borç Özeti', files: [w.uri] });
+      return;
+    }
+    const file = new File([blob], name, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })){
+      await navigator.share({ files: [file], title: 'Borç Özeti' });
+      return;
+    }
+    downloadBlob(blob, name);
+    document.getElementById('sumHint').textContent =
+      'Paylaşım desteklenmiyor — resim indirildi. Resme uzun basıp da kaydedebilirsin.';
+  } catch (e){
+    if (e && e.name === 'AbortError') return;
+    toast('Kart oluşturulamadı');
+  } finally {
+    btn.disabled = false; btn.textContent = 'Paylaş';
+  }
+}
+
+async function downloadSummaryCard(){
+  try { downloadBlob(await summaryCardBlob(), summaryFileName()) }
+  catch { toast('Kart oluşturulamadı') }
+}
+
+document.getElementById('btnSummaryCard').onclick = openSummaryCard;
+document.getElementById('btnSumShare').onclick = shareSummaryCard;
+document.getElementById('btnSumDownload').onclick = downloadSummaryCard;
+
 document.getElementById('btnShare').onclick = () => {
   const p = state.people.find(x => x.id === currentPerson);
   if (!p) return;
