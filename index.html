@@ -495,7 +495,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.10.0</div>
+        <div class="hint">Sürüm 1.10.1</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -726,6 +726,7 @@ const Store = {
   _pushing: false,
   _pending: null,
   _pushPromise: null,
+  _saveSeq: 0,
   status: 'offline', // 'offline' | 'pending' | 'syncing' | 'synced'
   statusAt: null,
   onStatusChange: null,
@@ -803,6 +804,7 @@ const Store = {
         return local || this._readLocal();
       }
     }
+    const seq = this._saveSeq;
     try {
       const [ay, pe, de, pa, ca] = await Promise.all([
         sb.from('borc_ayarlar').select('*').eq('user_id', user.id).maybeSingle(),
@@ -813,6 +815,13 @@ const Store = {
       ]);
       const err = ay.error || pe.error || de.error || pa.error || ca.error;
       if (err) throw err;
+      // Okuma surerken bir kayit yapildiysa (her kayit realtime yankisi uretip bu load()'u
+      // tetikledigi icin art arda girislerde sik olur) elimizdeki uzak kopya o kayittan
+      // ESKIDIR. Onu yazarsak kayit state'ten ve localStorage'dan duser; _lastSynced da
+      // bozulur ve push basarili olsa bile bir sonraki save() kaydi sunucudan SILER.
+      // Uzak kopyayi at, yerel (en guncel) state ile devam et; push'un kendi yankisi
+      // birazdan yeni bir load() tetikler.
+      if (seq !== this._saveSeq || this._pushing || this._isDirty()) return this._readLocal();
       const remote = {
         settings: ay.data ? { cutoffDay: ay.data.cutoff_day, payDay: ay.data.pay_day, theme: ay.data.theme || 'dark' } : { cutoffDay:23, payDay:1, theme:'dark' },
         people: pe.data.map(r => ({ id:r.id, name:r.ad, sortOrder:r.sort_order })),
@@ -832,6 +841,7 @@ const Store = {
   },
 
   async save(s){
+    this._saveSeq++;
     this._writeLocal(s);
     // push tamamlanana kadar "senkronize olmamis veri var" olarak isaretle -
     // load() uygulama yeniden acildiginda bunu görüp eski uzak veriyle ezmeden once gonderir.
@@ -882,11 +892,15 @@ const Store = {
   },
 
   async _syncTable(table, prevRows, curRows, toRow){
-    const prevIds = new Set(prevRows.map(r=>r.id));
+    const prevById = new Map(prevRows.map(r=>[r.id, JSON.stringify(r)]));
     const curIds = new Set(curRows.map(r=>r.id));
-    const removed = [...prevIds].filter(id => !curIds.has(id));
-    if (curRows.length){
-      const { error } = await sb.from(table).upsert(curRows.map(toRow));
+    const removed = [...prevById.keys()].filter(id => !curIds.has(id));
+    // Yalnizca degisen/yeni satirlari gonder. Hepsini upsert etmek, realtime'i kacirmis
+    // (orn. arka planda kalmis) bir cihazin, baska cihazda duzenlenmis satirlari kendi
+    // eski kopyasiyla ezmesine ve baska cihazda silinmis satirlari diriltmesine yol aciyordu.
+    const changed = curRows.filter(r => prevById.get(r.id) !== JSON.stringify(r));
+    if (changed.length){
+      const { error } = await sb.from(table).upsert(changed.map(toRow));
       if (error) throw error;
     }
     if (removed.length){
@@ -1023,8 +1037,11 @@ window.addEventListener('online', () => {
    kayit varsa son bir deneme yap; basarisiz olursa dirty bayragi durur ve load() yerel
    veriyi korur. Geri donuste de bekleyeni tekrar gondermeyi dene. */
 document.addEventListener('visibilitychange', () => {
-  if (!Store._uid || !Store._isDirty()) return;
-  Store._push(Store._pending || state);
+  if (!Store._uid) return;
+  if (Store._isDirty()){ Store._push(Store._pending || state); return }
+  // Arka plandayken realtime baglantisi kopar ve kacirilan olaylar tekrar gelmez; on plana
+  // donunce guncel veriyi cek ki bu cihazin bayat state'i baska cihazdaki degisiklikleri ezmesin.
+  if (document.visibilityState === 'visible') reloadFromRemote();
 });
 
 let state = {
