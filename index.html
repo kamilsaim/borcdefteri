@@ -495,7 +495,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.10.1</div>
+        <div class="hint">Sürüm 1.11.0</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -2850,6 +2850,47 @@ function confirmExit(){
   toast('Çıkmak için tekrar geri tuşuna bas');
   return false;
 }
+/* Kisi detayinda saga kaydirinca geri don. Ekran parmagi takip eder; esigi gecmezse
+   yerine oturur. Dikey kaydirmayla karismasin diye yon ilk hareketlerde kilitlenir. */
+(function swipeBack(){
+  const views = { 'view-detay': () => show('kisiler'), 'view-shared': () => { currentShare = null; show('paylasilan') } };
+  let g = null;
+  const reset = el => { el.style.transition = 'transform .2s ease'; el.style.transform = ''; setTimeout(() => { el.style.transition = '' }, 200) };
+  Object.keys(views).forEach(id => {
+    const el = document.getElementById(id);
+    el.addEventListener('touchstart', e => {
+      if (e.touches.length !== 1 || document.querySelector('.overlay.open')) { g = null; return }
+      if (e.target.closest('input,textarea,select')) { g = null; return }
+      const t = e.touches[0];
+      g = { el, x: t.clientX, y: t.clientY, dx: 0, dir: null };
+    }, { passive: true });
+    el.addEventListener('touchmove', e => {
+      if (!g || g.el !== el) return;
+      const t = e.touches[0], dx = t.clientX - g.x, dy = t.clientY - g.y;
+      if (!g.dir){
+        if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+        g.dir = (dx > 0 && Math.abs(dx) > Math.abs(dy) * 1.5) ? 'h' : 'v';
+      }
+      if (g.dir !== 'h') return;
+      e.preventDefault();
+      g.dx = Math.max(0, dx);
+      el.style.transition = '';
+      el.style.transform = `translateX(${g.dx}px)`;
+    }, { passive: false });
+    const end = () => {
+      if (!g || g.el !== el) return;
+      const done = g.dir === 'h' && g.dx > Math.min(110, window.innerWidth * 0.3);
+      g = null;
+      if (!done){ reset(el); return }
+      el.style.transition = 'transform .15s ease';
+      el.style.transform = `translateX(${window.innerWidth}px)`;
+      setTimeout(() => { el.style.transition = ''; el.style.transform = ''; views[id]() }, 150);
+    };
+    el.addEventListener('touchend', end);
+    el.addEventListener('touchcancel', end);
+  });
+})();
+
 if (window.Capacitor?.isNativePlatform?.()){
   Capacitor.Plugins.App.addListener('backButton', () => {
     if (backStep()) return;
