@@ -84,7 +84,9 @@ Uygulama tek bir HTML dosyasıdır, kurulum gerektirmez:
 Uygulama Google girişiyle çalışır; verileriniz Supabase'de **yalnızca sizin
 erişebileceğiniz** şekilde (Row Level Security ile korunan, hesabınıza bağlı kayıtlar)
 saklanır ve çevrimdışı kullanım için ayrıca cihazınızda (`localStorage`) tutulur.
-Paylaşılan hesaplarda yalnızca **sizin paylaştığınız kişi kartı** karşı tarafa açılır.
+Paylaşılan hesaplarda yalnızca **sizin paylaştığınız kişi kartı** karşı tarafa açılır;
+karşı taraf yalnızca o karta, verdiğiniz yetki kadar kayıt ekleyebilir. Bildirim gönderimi
+ve kullanıcı bilgisine erişen sunucu fonksiyonları dışarıdan çağrılamaz.
 **Reklam yok, takip yok.** Hesabınızı ve tüm verilerinizi Ayarlar'dan kendiniz
 silebilirsiniz.
 
@@ -95,13 +97,14 @@ silebilirsiniz.
 | Yapı | Tek dosya HTML + CSS + JS, framework yok |
 | Depolama | Supabase (birincil) + `localStorage` çevrimdışı önbellek, JSON yedekleme ile taşınabilir |
 | Bulut senkronu | [Supabase](https://supabase.com) — Postgres + Auth + Realtime (Google girişiyle) |
+| Güvenlik | Tüm tablolarda Row Level Security; paylaşım yetkisi ve kayıt sahipliği veritabanı politikalarıyla denetlenir |
 | Yayın | GitHub Pages |
 
 ## 📋 Sürüm Geçmişi
 
 | Sürüm | Yenilikler |
 |---|---|
-| **v1.11.0** | **Kaydırarak geri dönme**: kişi detayında (ve Ortak hesap detayında) ekranı sağa çekince listeye dönülüyor |
+| **v1.11.0** | **Kaydırarak geri dönme**: kişi detayında (ve Ortak hesap detayında) ekranı sağa çekince listeye dönülüyor. **Sunucu güvenlik sertleştirmesi**: bildirim fonksiyonunun dışarıdan çağrılması kapatıldı, paylaşılan hesaplarda kayıt sahipliği ve davetli kimliği veritabanında denetleniyor |
 | **v1.10.1** | Art arda girilen kayıtlarda zaman zaman yaşanan kayıp düzeltildi (uzak veri okunurken yapılan kayıt eski kopyayla eziliyor, bir sonraki kayıtta sunucudan da silinebiliyordu); artık yalnızca değişen satırlar gönderiliyor, böylece bir cihaz başka cihazdaki düzenlemeleri ezmiyor; uygulama ön plana dönünce güncel veri çekiliyor |
 | **v1.10.0** | **Özet kart**: kişi detayından o kişinin durumunu PNG kart olarak üretip paylaşma |
 | **v1.9.0** | **Çevrimdışı görünürlüğü**: gönderilmemiş kayıt varken üstte uyarı şeridi ve "Şimdi gönder" düğmesi, bekleyen satırlarda ⏳ işareti; bağlantı yokken silme engellenir; çevrimdışı yapılan silmeler artık bağlantı gelince gönderilir; çıkışta bekleyen kayıt uyarısı |
