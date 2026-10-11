@@ -495,7 +495,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.11.0</div>
+        <div class="hint">Sürüm 1.11.1</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -720,6 +720,9 @@ const Store = {
   key: 'borcdefteri_v1',
   dirtyKey: 'borcdefteri_v1_dirty',
   lastSyncKey: 'borcdefteri_v1_lastsync',
+  revKey: 'borcdefteri_v1_rev',
+  _recovered: false,
+  _retryTimer: null,
   _lastSynced: null,
   _uid: null,
   _channel: null,
@@ -746,6 +749,73 @@ const Store = {
   _restoreLastSynced(){
     if (this._lastSynced) return;
     try { this._lastSynced = JSON.parse(localStorage.getItem(this.lastSyncKey)) || null } catch(e) { this._lastSynced = null }
+  },
+
+  /* iOS'ta (WebKit) localStorage yazmalari diske ~500ms gecikmeyle islenir ve uygulama
+     askiya alininca bu islem takilabilir; internet yokken kaydedip uygulamayi hemen
+     kapatinca hem kayit hem dirty bayragi kayboluyordu (bkz. WebKit bug 227632).
+     IndexedDB islemi "complete" oldugunda veri diske yazilmistir; bu yuzden her degisiklik
+     buraya da yansitilir. rev sayaci hangi kopyanin daha yeni oldugunu soyler. */
+  _idb: {
+    _dbp: null,
+    _open(){
+      if (typeof indexedDB === 'undefined') return Promise.resolve(null);
+      if (!this._dbp) this._dbp = new Promise(res => {
+        try {
+          const r = indexedDB.open('borcdefteri', 1);
+          r.onupgradeneeded = () => r.result.createObjectStore('kv');
+          r.onsuccess = () => res(r.result);
+          r.onerror = r.onblocked = () => res(null);
+        } catch(e) { res(null) }
+      });
+      return this._dbp;
+    },
+    async _run(mode, fn){
+      const db = await this._open();
+      if (!db) return null;
+      return new Promise(res => {
+        try {
+          const tx = db.transaction('kv', mode);
+          const q = fn(tx.objectStore('kv'));
+          tx.oncomplete = () => res(mode === 'readonly' ? (q.result ?? null) : true);
+          tx.onerror = tx.onabort = () => res(null);
+        } catch(e) { res(null) }
+      });
+    },
+    get(){ return this._run('readonly', st => st.get('snap')) },
+    put(v){ return this._run('readwrite', st => st.put(v, 'snap')) },
+    clear(){ return this._run('readwrite', st => st.delete('snap')) },
+  },
+
+  _mirror(){
+    try {
+      const rev = (Number(localStorage.getItem(this.revKey)) || 0) + 1;
+      localStorage.setItem(this.revKey, String(rev));
+      return this._idb.put({ rev, state: localStorage.getItem(this.key), dirty: this._isDirty(), lastSync: localStorage.getItem(this.lastSyncKey) });
+    } catch(e) { return Promise.resolve(null) }
+  },
+
+  /* Acilista localStorage, IndexedDB'deki kopyadan eskiyse (yazmalar diske ulasmadan
+     uygulama kapatilmis) IndexedDB'dekini geri yukle; dirty ise asagidaki flush gonderir. */
+  async _recover(){
+    if (this._recovered) return;
+    this._recovered = true;
+    const snap = await this._idb.get();
+    if (!snap || !(snap.rev > (Number(localStorage.getItem(this.revKey)) || 0))) return;
+    if (snap.state != null) localStorage.setItem(this.key, snap.state);
+    if (snap.lastSync != null) localStorage.setItem(this.lastSyncKey, snap.lastSync);
+    if (snap.dirty) localStorage.setItem(this.dirtyKey, '1'); else localStorage.removeItem(this.dirtyKey);
+    localStorage.setItem(this.revKey, String(snap.rev));
+    this._lastSynced = null;
+  },
+
+  /* Cikis / hesap silme: yerel kopyalarin hepsini (IndexedDB dahil) temizle, aksi halde
+     _recover() bir sonraki girista eski hesabin verisini geri getirirdi. */
+  clearLocal(){
+    for (const k of [this.key, this.dirtyKey, this.lastSyncKey, this.revKey]) { try { localStorage.removeItem(k) } catch(e) {} }
+    this._lastSynced = null; this._pending = null;
+    clearTimeout(this._retryTimer);
+    return this._idb.clear();
   },
 
   /* Bekleyen (henuz gonderilmemis) satir sayisi. _lastSynced hic olusmamissa sayi
@@ -782,9 +852,16 @@ const Store = {
     // anda cikplak null donersek bootApp() state'i sifirlar, migrateCards() da bos kart
     // dizisini "yeni kullanici" sanip localStorage'daki gercek veriyi ezer. Asagidaki catch
     // blogundaki gibi yerel onbellege dusmek bu kaybi engeller.
+    await this._recover();
     this._restoreLastSynced();
     const { data: { user } } = await sb.auth.getUser();
-    if (!user){ this._setStatus('offline'); return this._readLocal() }
+    if (!user){
+      // Ag yokken de kimlik yerel oturumda duruyor; _uid bos kalirsa _push hicbir sey
+      // gondermez ve internet geri geldiginde bekleyen kayit cihazdan cikamaz.
+      try { const { data: { session } } = await sb.auth.getSession(); if (session && session.user) this._uid = session.user.id } catch(e) {}
+      this._setStatus('offline');
+      return this._readLocal();
+    }
     this._uid = user.id;
     // Kayit sonrasi kaydet ekranini kapatip uygulama hemen kapatilirsa (bkz. save()
     // yorumlari) push tamamlanmadan yarida kalabilir; boyle bir kayit varsa asagidaki
@@ -831,6 +908,7 @@ const Store = {
       };
       this._setLastSynced(JSON.parse(JSON.stringify(remote)));
       this._writeLocal(remote);
+      this._mirror();
       this._setStatus('synced');
       this._subscribeRealtime();
       return remote;
@@ -846,6 +924,7 @@ const Store = {
     // push tamamlanana kadar "senkronize olmamis veri var" olarak isaretle -
     // load() uygulama yeniden acildiginda bunu görüp eski uzak veriyle ezmeden once gonderir.
     localStorage.setItem(this.dirtyKey, '1');
+    this._mirror();
     await this._push(s);
   },
 
@@ -883,11 +962,17 @@ const Store = {
           this._setLastSynced(toSend);
           if (JSON.stringify(this._pending) === JSON.stringify(toSend)) this._pending = null;
         } catch (e) {
-          this._setStatus('pending');
-          return; // dirty flag kalir; bir sonraki save/online/boot tetikleyicisinde tekrar denenir
+          this._setStatus(typeof navigator !== 'undefined' && navigator.onLine === false ? 'offline' : 'pending');
+          // dirty flag kalir; save/online/boot tetikleyicilerine ek olarak kendimiz de tekrar
+          // deneriz - aksi halde kullanici baska bir sey yapmadikca kayit cihazdan cikmiyordu.
+          clearTimeout(this._retryTimer);
+          this._retryTimer = setTimeout(() => { if (this._pending && this._isDirty()) this._push(this._pending) }, 20000);
+          return;
         }
       }
+      clearTimeout(this._retryTimer);
       localStorage.removeItem(this.dirtyKey);
+      this._mirror();
       this._setStatus('synced');
   },
 
@@ -1698,8 +1783,9 @@ function renderDetay(){
     Store._writeLocal(state);
     if (Store._lastSynced){
       const t = Store._lastSynced.payments.find(p=>p.id===x.id);
-      if (t) t.approved = true;
+      if (t){ t.approved = true; Store._setLastSynced(Store._lastSynced) }
     }
+    Store._mirror();
     render();
   });
   document.querySelectorAll('[data-editpay]').forEach(b => b.onclick = () => {
@@ -1909,8 +1995,11 @@ guardSave('fDebtSave', async () => {
   } else {
     state.debts.push({ id:uid(), personId:pid, ...payload, createdBy:null, approved:true });
   }
+  // save()'in senkron kismi (yerel yazma) render'dan once calissin: render hata verirse
+  // kayit yalnizca bellekte kalip uygulama kapaninca kayboluyordu.
+  const saving = Store.save(state);
   closeSheets(); render();
-  await Store.save(state);
+  await saving;
 });
 
 let payDir = 'in';
@@ -1949,8 +2038,9 @@ guardSave('fPaySave', async () => {
   } else {
     state.payments.push({ id:uid(), personId:pid, ...payload, createdBy:null, approved:true });
   }
+  const saving = Store.save(state);
   closeSheets(); render();
-  await Store.save(state);
+  await saving;
 });
 
 /* ---- Paylaşım ---- */
@@ -2493,8 +2583,7 @@ document.getElementById('btnLogout').onclick = async () => {
     if (Store._isDirty() && !await askConfirm('Gönderilmemiş kayıtlarınız var. Çıkarsanız bu kayıtlar kaybolur. Yine de çıkılsın mı?', 'Yine de çık')) return;
   }
   if (!await askConfirm('Çıkış yapılsın mı?', 'Çıkış yap')) return;
-  try { localStorage.removeItem(Store.key); localStorage.removeItem(Store.dirtyKey); localStorage.removeItem(Store.lastSyncKey); } catch(e) {}
-  Store._lastSynced = null; Store._pending = null;
+  await Store.clearLocal();
   await Push.release();
   Store._unsubscribeRealtime();
   SharedStore._unsubscribe();
@@ -2518,8 +2607,7 @@ document.getElementById('btnDeleteAccount').onclick = async () => {
   await Push.release();
   Store._unsubscribeRealtime();
   SharedStore._unsubscribe();
-  try { localStorage.removeItem(Store.key); localStorage.removeItem(Store.dirtyKey); localStorage.removeItem(Store.lastSyncKey); } catch {}
-  Store._lastSynced = null; Store._pending = null;
+  await Store.clearLocal();
   await sb.auth.signOut();
   state = { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[], shares:[], sharedAccounts:[] };
   showAuthScreen();

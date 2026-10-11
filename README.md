@@ -10,7 +10,7 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 ödemeleri tek bir dosyada takip edin — hesabınıza bağlı bulut senkronu ve
 çevrimdışı çalışma ile.
 
-![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.11.0-2E7D5B)
+![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.11.1-2E7D5B)
 ![Platform](https://img.shields.io/badge/platform-Web%20%C2%B7%20PWA-2E7D5B)
 ![Yapı](https://img.shields.io/badge/yap%C4%B1-tek%20dosya%20HTML-0F1512)
 
@@ -104,6 +104,7 @@ silebilirsiniz.
 
 | Sürüm | Yenilikler |
 |---|---|
+| **v1.11.1** | **Çevrimdışı kayıt kaybı düzeltildi**: iPhone'da internet yokken yapılan kayıt, uygulama hemen kapatılınca telefonun hafızasına yazılamadan kayboluyordu. Kayıtlar artık ayrıca kalıcı yerel veritabanına (IndexedDB) yazılıyor ve açılışta geri yüklenip gönderiliyor; bağlantı gelince bekleyen kayıtlar kendiliğinden yeniden gönderiliyor |
 | **v1.11.0** | **Kaydırarak geri dönme**: kişi detayında (ve Ortak hesap detayında) ekranı sağa çekince listeye dönülüyor. **Sunucu güvenlik sertleştirmesi**: bildirim fonksiyonunun dışarıdan çağrılması kapatıldı, paylaşılan hesaplarda kayıt sahipliği ve davetli kimliği veritabanında denetleniyor |
 | **v1.10.1** | Art arda girilen kayıtlarda zaman zaman yaşanan kayıp düzeltildi (uzak veri okunurken yapılan kayıt eski kopyayla eziliyor, bir sonraki kayıtta sunucudan da silinebiliyordu); artık yalnızca değişen satırlar gönderiliyor, böylece bir cihaz başka cihazdaki düzenlemeleri ezmiyor; uygulama ön plana dönünce güncel veri çekiliyor |
 | **v1.10.0** | **Özet kart**: kişi detayından o kişinin durumunu PNG kart olarak üretip paylaşma |
