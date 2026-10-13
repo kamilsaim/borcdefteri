@@ -31,7 +31,7 @@
     <strong>Borç Defteri</strong>
   </header>
   <h1>Gizlilik Politikası</h1>
-  <div class="date">Son güncelleme: 12 Ağustos 2026</div>
+  <div class="date">Son güncelleme: 13 Ekim 2026</div>
 
   <p>Borç Defteri, kişisel borç ve alacaklarınızı takip etmeniz için tasarlanmış bir uygulamadır. Bu politika, hangi bilgileri topladığımızı, nasıl kullandığımızı, kimlerle paylaşıldığını ve verilerinizi nasıl silebileceğinizi açıklar.</p>
 
@@ -39,10 +39,10 @@
 
   <h2>Toplanan bilgiler</h2>
   <ul>
-    <li><strong>Hesap bilgileri:</strong> Google ile giriş yaptığınızda, Google'dan gelen <strong>ad, e-posta adresi ve profil fotoğrafınız</strong> hesabınızı tanımlamak için alınır.</li>
+    <li><strong>Hesap bilgileri:</strong> Google ile giriş yaptığınızda, Google'dan gelen <strong>ad, e-posta adresi ve profil fotoğrafınız</strong> hesabınızı tanımlamak için alınır. <strong>Apple ile giriş</strong> yaptığınızda yalnızca Apple'ın paylaştığı <strong>e-posta adresi</strong> (“E-postamı gizle” seçerseniz Apple'ın verdiği yönlendirme adresi) ve izin verirseniz <strong>adınız</strong> alınır.</li>
     <li><strong>Uygulama verileri:</strong> Kendi girdiğiniz kişiler, borç/alacak kayıtları, ödemeler ve kart tanımları (kart adı, kesim/son ödeme günü). <strong>Kart numarası, CVV veya herhangi bir ödeme aracı bilgisi istenmez ve saklanmaz.</strong></li>
     <li><strong>Paylaşım bilgileri:</strong> Bir kaydı başka bir kullanıcıyla paylaşmak isterseniz, davet ettiğiniz kişinin <strong>e-posta adresi</strong> daveti eşleştirmek için saklanır.</li>
-    <li><strong>Bildirim kimliği:</strong> Android uygulamasında bildirimlere izin verirseniz, cihazınıza ait <strong>Firebase Cloud Messaging (FCM) kayıt jetonu</strong> saklanır. Bu jeton yalnızca bildirimi doğru cihaza ulaştırmak için kullanılır; reklam kimliği değildir ve izleme amacıyla kullanılmaz.</li>
+    <li><strong>Bildirim kimliği:</strong> Bildirimlere izin verirseniz, cihazınıza ait bildirim jetonu saklanır: Android uygulamasında ve web'de <strong>Firebase Cloud Messaging (FCM) kayıt jetonu</strong>, iPhone uygulamasında <strong>Apple Push Notification service (APNs) cihaz jetonu</strong>. Bu jeton yalnızca bildirimi doğru cihaza ulaştırmak için kullanılır; reklam kimliği değildir ve izleme amacıyla kullanılmaz.</li>
   </ul>
   <p>Uygulamada <strong>reklam ağı, analitik veya izleme (tracking) SDK'sı bulunmaz</strong>; konum, rehber, fotoğraf, kişiler veya cihaz tanımlayıcıları toplanmaz.</p>
 
@@ -51,18 +51,18 @@
 
   <h2>Verilerin saklanması ve güvenliği</h2>
   <p>Verileriniz altyapı sağlayıcısı <strong>Supabase</strong> üzerinde, <strong>Avrupa Birliği (Frankfurt, Almanya)</strong> bölgesindeki sunucularda saklanır. Türkiye dışında barındırıldığı için verileriniz yurt dışına aktarılmış sayılır. Erişim satır düzeyi güvenlik (RLS) kurallarıyla yalnızca sizinle (ve varsa açıkça paylaştığınız kullanıcılarla) sınırlandırılmıştır; tüm aktarım HTTPS ile şifrelenir.</p>
-  <p>Kimlik doğrulama <strong>Google</strong> ile yapılır. Google API'lerinden alınan bilgilerin kullanımı, <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a> ve onun Sınırlı Kullanım (Limited Use) şartlarına uygundur.</p>
+  <p>Kimlik doğrulama <strong>Google</strong> veya <strong>Apple</strong> ile yapılır. Google API'lerinden alınan bilgilerin kullanımı, <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a> ve onun Sınırlı Kullanım (Limited Use) şartlarına uygundur.</p>
 
   <h2>Paylaşım</h2>
   <p>Verileriniz <strong>üçüncü taraflara satılmaz ve pazarlama amacıyla paylaşılmaz</strong>. Yalnızca şu durumlarda paylaşılır:</p>
   <ul>
     <li><strong>Sizin isteğinizle diğer kullanıcılarla:</strong> “Paylaşılan Hesaplar” özelliğini kullanarak bir kişi kaydını başka bir kullanıcıyla paylaştığınızda, o kayda ait <strong>kişi adı, borç/alacak kalemleri ve ödemeler</strong> davet ettiğiniz kullanıcıya görünür olur. Verdiğiniz role göre karşı taraf yalnızca görüntüleyebilir ya da kayıt ekleyebilir. Kart bilgileriniz (kart adı, kesim/ödeme günü) paylaşıma <strong>kapalıdır</strong>. Paylaşımı istediğiniz zaman uygulamadan iptal edebilirsiniz.</li>
-    <li><strong>Hizmet sağlayıcılarla:</strong> Yalnızca uygulamanın çalışması için gereken ölçüde — barındırma/veritabanı için Supabase, giriş için Google, bildirim iletimi için Google Firebase Cloud Messaging.</li>
+    <li><strong>Hizmet sağlayıcılarla:</strong> Yalnızca uygulamanın çalışması için gereken ölçüde — barındırma/veritabanı için Supabase, giriş için Google ve Apple, bildirim iletimi için Google Firebase Cloud Messaging ve Apple Push Notification service.</li>
     <li><strong>Yasal zorunluluk halinde:</strong> Yetkili makamların hukuka uygun talebi üzerine.</li>
   </ul>
 
   <h2>Bildirimler</h2>
-  <p>Yalnızca <strong>sizin katıldığınız paylaşılan hesaplarda</strong> bir hareket olduğunda (kayıt eklenmesi, düzenlenmesi, silinmesi veya paylaşım daveti) bildirim gönderilir. Kendi yaptığınız işlemler için size bildirim gitmez ve pazarlama amaçlı bildirim gönderilmez. Bildirim iletimi için <strong>Google Firebase Cloud Messaging</strong> kullanılır; iletilen içerik kayıt adı ve tutar gibi bildirimin metnidir. Bildirimleri Android sistem ayarlarından istediğiniz zaman kapatabilirsiniz; kapattığınızda cihaz jetonunuz kullanılmaz hale gelir ve geçersizleştiğinde kayıtlarımızdan otomatik silinir.</p>
+  <p>Yalnızca <strong>sizin katıldığınız paylaşılan hesaplarda</strong> bir hareket olduğunda (kayıt eklenmesi, düzenlenmesi, silinmesi veya paylaşım daveti) bildirim gönderilir. Kendi yaptığınız işlemler için size bildirim gitmez ve pazarlama amaçlı bildirim gönderilmez. Bildirim iletimi için <strong>Google Firebase Cloud Messaging</strong> (Android/web) ve <strong>Apple Push Notification service</strong> (iPhone) kullanılır; iletilen içerik kayıt adı ve tutar gibi bildirimin metnidir. Bildirimleri telefonunuzun ayarlarından (Android: Uygulamalar → Borç Defteri → Bildirimler, iPhone: Ayarlar → Bildirimler → Borç Defteri) istediğiniz zaman kapatabilirsiniz; kapattığınızda cihaz jetonunuz kullanılmaz hale gelir ve geçersizleştiğinde kayıtlarımızdan otomatik silinir.</p>
 
   <h2>Saklama süresi</h2>
   <p>Verileriniz, siz silene kadar hesabınıza bağlı olarak saklanır. Silme işleminden sonra kayıtlar veritabanından derhal kaldırılır; sağlayıcı tarafındaki şifreli yedeklerden temizlenmesi <strong>en geç 30 gün</strong> sürer.</p>
@@ -71,7 +71,7 @@
   <p>Hesabınızı ve tüm borç/alacak kayıtlarınızı istediğiniz zaman kalıcı olarak silebilirsiniz:</p>
   <div class="card">
     <p><strong>Uygulama içinden:</strong> <em>Ayarlar → Hesap → “Hesabımı sil”</em> düğmesiyle, iki aşamalı onayın ardından Borç Defteri'ndeki <strong>tüm verileriniz</strong> (kişiler, borçlar, ödemeler, kartlar, ayarlar ve paylaşım kayıtları) geri alınamaz şekilde silinir.</p>
-    <p><strong>Giriş hesabınız hakkında:</strong> Aynı Google girişi, geliştiricinin diğer uygulamalarında da kullanılabilmektedir. Bu nedenle diğer uygulamalarda verinizin bulunmadığı durumda giriş hesabınız da tümüyle silinir; başka bir uygulamada veriniz varsa yalnızca Borç Defteri verileri silinir ve o uygulamaların çalışmaya devam edebilmesi için giriş hesabınız korunur. Uygulama silme işleminin ardından hangisinin gerçekleştiğini size bildirir.</p>
+    <p><strong>Giriş hesabınız hakkında:</strong> Aynı giriş hesabı (Google veya Apple), geliştiricinin diğer uygulamalarında da kullanılabilmektedir. Bu nedenle diğer uygulamalarda verinizin bulunmadığı durumda giriş hesabınız da tümüyle silinir; başka bir uygulamada veriniz varsa yalnızca Borç Defteri verileri silinir ve o uygulamaların çalışmaya devam edebilmesi için giriş hesabınız korunur. Uygulama silme işleminin ardından hangisinin gerçekleştiğini size bildirir.</p>
     <p style="margin-bottom:0"><strong>Uygulamaya erişiminiz yoksa:</strong> Hesap silme talebinizi <a href="mailto:saimkamil@gmail.com">saimkamil@gmail.com</a> adresine, girişte kullandığınız e-posta ile gönderin. Talebiniz en geç 30 gün içinde işleme alınır.</p>
   </div>
 

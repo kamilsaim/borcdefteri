@@ -336,6 +336,12 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
   border-radius:12px;padding:14px;margin-top:20px;
 }
 .primary:disabled{opacity:.4}
+/* Apple'ın düğme kuralı: siyah ya da beyaz zemin, Apple logosu + "Apple ile …" */
+.applebtn{
+  width:100%;background:#fff;color:#000;font-weight:700;font-size:1rem;
+  border-radius:12px;padding:14px;margin-top:12px;
+}
+[data-theme="light"] .applebtn{background:#000;color:#fff}
 .hint{
   margin-top:14px;background:var(--surface2);border:1px dashed var(--brass-dim);
   border-radius:10px;padding:10px 12px;font-size:.8rem;color:var(--muted);line-height:1.5;
@@ -379,6 +385,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <h1 style="font-family:var(--mono);letter-spacing:.14em;color:var(--brass);font-size:1.1rem;margin-bottom:6px">BORÇ DEFTERİ</h1>
     <p style="color:var(--muted);font-size:.86rem;margin-bottom:22px">Verileriniz hesabınıza bağlı olarak saklanır.</p>
     <button class="primary" id="btnGoogleLogin" style="margin-top:0">Google ile Giriş Yap</button>
+    <button class="applebtn" id="btnAppleLogin" hidden><svg viewBox="0 0 384 512" width="15" height="17" fill="currentColor" aria-hidden="true" style="vertical-align:-2px;margin-right:8px"><path d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>Apple ile Giriş Yap</button>
   </div>
 </div>
 
@@ -495,7 +502,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.11.2</div>
+        <div class="hint">Sürüm 1.12.0</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -2198,6 +2205,9 @@ document.getElementById('btnShare').onclick = () => {
   document.getElementById('shareHint').textContent = mine.length
     ? 'Mevcut paylaşımlar: ' + mine.map(s => `${s.inviteeEmail} (${ROLE_LABEL[s.role]}${s.status==='pending'?', bekliyor':''})`).join(', ')
     : 'Karşı taraf daveti kabul edene kadar hiçbir veri görünmez.';
+  // Davet e-postayla eşleşir; Apple'da "E-postamı gizle" ile giren kişinin adresi farklıdır.
+  document.getElementById('shareHint').textContent +=
+    ' Davet, karşı tarafın giriş yaptığı e-postayla eşleşir — Apple ile "E-postamı gizle" seçerek giren biri daveti göremez.';
   openSheet('ovShare');
 };
 
@@ -2215,7 +2225,7 @@ guardSave('fShareSave', async () => {
   if (error){ alert('Paylaşım kurulamadı: ' + error.message); return }
 
   await reloadShared();
-  const myName = SharedStore._email || 'Bir kullanıcı';
+  const myName = (!gizliEposta(SharedStore._email) && SharedStore._email) || 'Bir kullanıcı';
   const text = `${myName} seninle Borç Defteri'nde bir hesap paylaştı. Uygulamayı aç ve aynı e-posta (${email}) ile giriş yap: ${APP_LINK}`;
   document.getElementById('shareInviteText').textContent = text;
   document.getElementById('shareInviteBox').style.display = '';
@@ -2681,9 +2691,19 @@ async function reloadFromRemote(attempt = 0){
   if (attempt < 5) reloadTimer = setTimeout(() => reloadFromRemote(attempt + 1), Math.min(1000 * 2 ** attempt, 15000));
 }
 
-/* Push bildirimleri - yalnizca APK'da calisir. Bu katmanin tek isi cihaz
+/* Push bildirimleri - APK/iOS uygulamasi ve web push. Bu katmanin tek isi cihaz
    token'ini borc_push_tokens'a yazmak; hangi olayda kime bildirim gidecegine
-   veritabani trigger'lari karar verir (borc_push -> borc-push Edge Function). */
+   veritabani trigger'lari karar verir (borc_push -> borc-push Edge Function).
+   iOS uygulamasinda eklenti FCM degil APNs jetonu verir -> platform 'ios',
+   borc-push onu dogrudan APNs'e gonderir. */
+const IOS_APP = window.Capacitor?.getPlatform?.() === 'ios';
+// iOS WKWebView'de alert() kutusu sayfa adresini başlık yapar ve çirkin görünür →
+// uygulamanın kendi onay penceresini tek düğmeyle kullan.
+if (IOS_APP) window.alert = msg => {
+  const cancel = document.getElementById('cCancel'), ok = document.getElementById('cOk');
+  cancel.style.display = 'none'; ok.style.background = 'var(--brass)';
+  askConfirm(String(msg), 'Tamam').then(() => { cancel.style.display = ''; ok.style.background = '' });
+};
 const Push = {
   _wired: false,
   _token: null,
@@ -2769,7 +2789,7 @@ const Push = {
     if (!this._wired){
       this._wired = true;
       // Android 8+ kanalsiz bildirim gostermez; FCM payload'i bu id ile geliyor.
-      try {
+      if (!IOS_APP) try {
         await P.createChannel({
           id:'borc_ortak', name:'Ortak hesap hareketleri',
           description:'Paylasilan hesaplardaki ekleme, degisiklik ve davetler',
@@ -2779,7 +2799,7 @@ const Push = {
 
       P.addListener('registration', async ({ value }) => {
         this._token = value;
-        await this._saveToken(value);
+        await this._saveToken(value, IOS_APP ? 'ios' : 'android');
       });
       P.addListener('registrationError', e => console.warn('push kaydi basarisiz', e));
       P.addListener('pushNotificationActionPerformed', ({ notification }) => {
@@ -2827,7 +2847,9 @@ function renderPushStatus(){
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   if (Push.isNative()){
-    el.textContent = '● Uygulama bildirimleri açık (Android)';
+    el.textContent = IOS_APP
+      ? '● Bildirimler: iPhone Ayarlar → Bildirimler → Borç Defteri'
+      : '● Uygulama bildirimleri açık (Android)';
     btn.style.display = 'none';
   } else if (isIOS && !Push.iosStandalone()){
     el.innerHTML = 'iPhone/iPad\'de bildirim almak için önce <b>Paylaş → Ana Ekrana Ekle</b> ile uygulamayı ana ekrana ekle, sonra oradan aç.';
@@ -2902,8 +2924,11 @@ async function renderAccountEmail(){
   const el = document.getElementById('accountEmail');
   if (!el) return;
   const { data: { user } } = await sb.auth.getUser();
-  el.textContent = user?.email ? `● ${user.email}` : '—';
+  el.textContent = !user?.email ? '—'
+    : gizliEposta(user.email) ? '● Gizli e-posta (Apple ile giriş)' : `● ${user.email}`;
 }
+// Apple girişinde "E-postamı gizle" seçilirse adres anlamsız bir yönlendirme adresi olur.
+const gizliEposta = e => /@privaterelay\.appleid\.com$/i.test(e || '');
 
 /* Başlat */
 const CLEAN_URL = location.origin + location.pathname;
@@ -2935,18 +2960,25 @@ const CLEAN_URL = location.origin + location.pathname;
     });
   }
 })();
-document.getElementById('btnGoogleLogin').onclick = async () => {
+async function oauthGiris(provider){
   if (window.Capacitor){
     const redirectTo = 'com.kamilsaim.borcdefteri://auth-callback';
     const { data, error } = await sb.auth.signInWithOAuth({
-      provider:'google', options:{ redirectTo, skipBrowserRedirect:true }
+      provider, options:{ redirectTo, skipBrowserRedirect:true }
     });
     if (error) return alert('Giriş başlatılamadı: ' + error.message);
     if (data?.url) await Capacitor.Plugins.Browser.open({ url:data.url, windowName:'_self' });
   } else {
-    sb.auth.signInWithOAuth({ provider:'google', options:{ redirectTo: CLEAN_URL } });
+    sb.auth.signInWithOAuth({ provider, options:{ redirectTo: CLEAN_URL } });
   }
-};
+}
+document.getElementById('btnGoogleLogin').onclick = () => oauthGiris('google');
+// Apple ile Giriş: App Store 4.8 kuralı (Google girişi varsa zorunlu). Supabase'de ortak "KSapp"
+// Services ID'si kullanılıyor; sorun çıkarsa bu sabitle düğme gizlenir.
+const APPLE_GIRIS_ACIK = true;
+const btnApple = document.getElementById('btnAppleLogin');
+btnApple.hidden = !APPLE_GIRIS_ACIK;
+btnApple.onclick = () => oauthGiris('apple');
 
 /* ---- Android geri tuşu (APK) ----
    Sıra: açık popup varsa kapat → kişi detayındaysan listeye dön → başka sekmedeysen
