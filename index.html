@@ -502,7 +502,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.12.0</div>
+        <div class="hint">Sürüm 1.12.1</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -2847,10 +2847,21 @@ function renderPushStatus(){
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
                 (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   if (Push.isNative()){
-    el.textContent = IOS_APP
-      ? '● Bildirimler: iPhone Ayarlar → Bildirimler → Borç Defteri'
-      : '● Uygulama bildirimleri açık (Android)';
+    // Gerçek izin durumunu göster: verilmişse açık, hiç sorulmamışsa düğme, reddedilmişse
+    // yalnızca sistem ayarlarından açılabilir (uygulama izni ikinci kez soramaz).
     btn.style.display = 'none';
+    Capacitor.Plugins.PushNotifications.checkPermissions().then(({ receive }) => {
+      if (receive === 'granted'){
+        el.textContent = '● Bildirimler açık';
+      } else if (receive === 'denied'){
+        el.textContent = IOS_APP
+          ? 'Bildirimler kapalı. Açmak için iPhone Ayarlar → Borç Defteri → Bildirimler → Bildirimlere İzin Ver.'
+          : 'Bildirimler kapalı. Açmak için telefon Ayarlar → Uygulamalar → Borç Defteri → Bildirimler.';
+      } else {
+        el.textContent = 'Paylaşılan hesaplarındaki hareketlerden haberdar olmak için bildirimleri aç.';
+        btn.style.display = '';
+      }
+    }).catch(() => { el.textContent = '—' });
   } else if (isIOS && !Push.iosStandalone()){
     el.innerHTML = 'iPhone/iPad\'de bildirim almak için önce <b>Paylaş → Ana Ekrana Ekle</b> ile uygulamayı ana ekrana ekle, sonra oradan aç.';
     btn.style.display = 'none';
@@ -2872,6 +2883,12 @@ function renderPushStatus(){
 document.getElementById('btnEnablePush').onclick = async () => {
   const btn = document.getElementById('btnEnablePush');
   btn.disabled = true;
+  if (Push.isNative()){
+    try { await Push._initNative() } catch(e) {}
+    btn.disabled = false;
+    renderPushStatus();
+    return;
+  }
   const r = await Push.enableWeb();
   btn.disabled = false;
   renderPushStatus();
@@ -2978,7 +2995,35 @@ document.getElementById('btnGoogleLogin').onclick = () => oauthGiris('google');
 const APPLE_GIRIS_ACIK = true;
 const btnApple = document.getElementById('btnAppleLogin');
 btnApple.hidden = !APPLE_GIRIS_ACIK;
-btnApple.onclick = () => oauthGiris('apple');
+btnApple.onclick = () => window.Capacitor?.Plugins?.SignInWithApple ? appleNativeGiris() : oauthGiris('apple');
+
+// iPhone uygulamasında iOS'un kendi Apple girişi: web akışı paylaşılan "KSapp" kimliğinden
+// gittiği için Apple ekranında grubun ana uygulaması (Bal Defterim) görünüyordu; native akışta
+// kimlik doğrudan bu uygulamanın paket kimliği. Supabase jetonu Apple'ın anahtarlarıyla doğrular,
+// nonce tekrar oynatmayı engeller (Apple'a SHA-256'sı, Supabase'e ham hali gider).
+async function appleNativeGiris(){
+  const ham = crypto.randomUUID() + crypto.randomUUID();
+  const ozet = [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(ham)))]
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+  let r;
+  try {
+    r = await Capacitor.Plugins.SignInWithApple.authorize({
+      clientId: 'com.kamilsaim.borcdefteri',
+      redirectURI: 'https://pdxnpnlwrtswwifevlil.supabase.co/auth/v1/callback',
+      scopes: 'email name',
+      nonce: ozet
+    });
+  } catch(e) {
+    // Kullanıcı vazgeçtiyse (ASAuthorizationError 1001) sessiz kal.
+    if (!/1001|cancel/i.test(String(e?.message || e))) alert('Apple ile giriş yapılamadı: ' + (e?.message || e));
+    return;
+  }
+  const { error } = await sb.auth.signInWithIdToken({ provider:'apple', token:r.response.identityToken, nonce:ham });
+  if (error) return alert('Giriş tamamlanamadı: ' + error.message);
+  // Apple adı yalnızca ilk girişte verir; varsa hesaba yaz (bildirim metinlerinde kullanılır).
+  const ad = [r.response.givenName, r.response.familyName].filter(Boolean).join(' ');
+  if (ad) sb.auth.updateUser({ data:{ full_name: ad } }).catch(() => {});
+}
 
 /* ---- Android geri tuşu (APK) ----
    Sıra: açık popup varsa kapat → kişi detayındaysan listeye dön → başka sekmedeysen

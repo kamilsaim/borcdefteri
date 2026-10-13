@@ -10,7 +10,7 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 ödemeleri tek bir dosyada takip edin — hesabınıza bağlı bulut senkronu ve
 çevrimdışı çalışma ile.
 
-![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.12.0-2E7D5B)
+![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.12.1-2E7D5B)
 ![Platform](https://img.shields.io/badge/platform-Web%20%C2%B7%20PWA-2E7D5B)
 ![Yapı](https://img.shields.io/badge/yap%C4%B1-tek%20dosya%20HTML-0F1512)
 
@@ -104,6 +104,7 @@ silebilirsiniz.
 
 | Sürüm | Yenilikler |
 |---|---|
+| **v1.12.1** | iPhone uygulamasında **iOS'un kendi Apple ile Giriş ekranı** (giriş ekranında artık Borç Defteri adı görünür); Ayarlar > Bildirimler gerçek izin durumunu gösteriyor, izin sorulmadıysa "Bildirimleri aç" düğmesi, kapatıldıysa nasıl açılacağı yazıyor |
 | **v1.12.0** | **Apple ile Giriş** (iPhone uygulaması için); iPhone uygulamasında bildirimler (APNs) ve uygulama içi uyarı pencereleri; "E-postamı gizle" ile girenlerde gizli adres yerine açıklama gösteriliyor, paylaşım davetinde uyarı |
 | **v1.11.2** | **Oturum kalıcılığı**: giriş oturumu da kalıcı yerel veritabanına yazılıyor; iPhone'da uygulama hemen kapatılınca "yeniden giriş yap" istenmesi önlendi. İnternet yokken kaydedince "İnternet gelince gönderilecek" bilgisi gösteriliyor. Her kayıtta gereksiz ayar yazması kaldırıldı |
 | **v1.11.1** | **Çevrimdışı kayıt kaybı düzeltildi**: iPhone'da internet yokken yapılan kayıt, uygulama hemen kapatılınca telefonun hafızasına yazılamadan kayboluyordu. Kayıtlar artık ayrıca kalıcı yerel veritabanına (IndexedDB) yazılıyor ve açılışta geri yüklenip gönderiliyor; bağlantı gelince bekleyen kayıtlar kendiliğinden yeniden gönderiliyor |
