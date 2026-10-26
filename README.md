@@ -35,6 +35,7 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 - Seçili aya ait **taksit/nakit** ve **tek çekim** kalemleri ayrı listelerde
 - O aya ait **Alacağım / Borcum** toplamları ile **Ödenen / Kalan** dökümü
 - Kalan tutarlar üzerinden genel **net durum**
+- **Kişi bazında özet**: o ay her kişiden alınacak / ödenecek kalan tutar tek satırda, büyükten küçüğe
 
 ### 👥 Kişiler
 - Her kişi kartında bu ay + sonraki **2 ay için ödeme tahmini** küçük etiketler halinde
@@ -65,7 +66,7 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 - Ayarlar'da ayrıca senkron durumu gösterilir (Senkronize / Bekleyen değişiklik / Çevrimdışı)
 
 ### 💾 Diğer
-- JSON **yedek indirme / geri yükleme**
+- JSON **yedek indirme / geri yükleme** (geri yükleme onay ister, çevrimdışıyken kapalıdır)
 - Ana ekrana eklenebilir **PWA** (favicon + apple-touch-icon)
 - Ayarlar'dan **hesabınızı ve tüm verilerinizi** uygulama içinden kalıcı olarak silebilirsiniz
 
