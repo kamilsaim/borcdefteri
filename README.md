@@ -10,7 +10,7 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 ödemeleri tek bir dosyada takip edin — hesabınıza bağlı bulut senkronu ve
 çevrimdışı çalışma ile.
 
-![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.12.2-2E7D5B)
+![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.13.0-2E7D5B)
 ![Platform](https://img.shields.io/badge/platform-Web%20%C2%B7%20PWA-2E7D5B)
 ![Yapı](https://img.shields.io/badge/yap%C4%B1-tek%20dosya%20HTML-0F1512)
 
@@ -104,6 +104,7 @@ silebilirsiniz.
 
 | Sürüm | Yenilikler |
 |---|---|
+| **v1.13.0** | Aylık sekmesinde **Kişi Bazında** özet: o ay kimden ne kadar alınacağı / kime ne kadar ödeneceği tek satırda, büyükten küçüğe; dokununca kişinin detayı açılır |
 | **v1.12.2** | "Yedekten geri yükle" artık onay istiyor ve çevrimdışıyken çalışmıyor (yedekte olmayan kayıtlar silineceği için); yedekteki eski paylaşım bilgileri güncel olanların üzerine yazılmıyor |
 | **v1.12.1** | iPhone uygulamasında **iOS'un kendi Apple ile Giriş ekranı** (giriş ekranında artık Borç Defteri adı görünür); Ayarlar > Bildirimler gerçek izin durumunu gösteriyor, izin sorulmadıysa "Bildirimleri aç" düğmesi, kapatıldıysa nasıl açılacağı yazıyor |
 | **v1.12.0** | **Apple ile Giriş** (iPhone uygulaması için); iPhone uygulamasında bildirimler (APNs) ve uygulama içi uyarı pencereleri; "E-postamı gizle" ile girenlerde gizli adres yerine açıklama gösteriliyor, paylaşım davetinde uyarı |

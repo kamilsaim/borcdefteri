@@ -438,6 +438,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     </div>
     <div class="netbar"><span style="font-size:.8rem;color:var(--muted);font-weight:700">Ay net</span><b id="mNet">₺0</b></div>
 
+    <h2 class="sec">Kişi Bazında</h2>
+    <div class="card" id="listAyKisi"></div>
     <h2 class="sec">Taksit / Nakit</h2>
     <div class="card" id="listAy"></div>
     <h2 class="sec">Tek Çekimler</h2>
@@ -502,7 +504,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.12.2</div>
+        <div class="hint">Sürüm 1.13.0</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -1490,6 +1492,36 @@ function renderAylik(){
   netEl.style.color = net>=0 ? 'var(--alacak)' : 'var(--borc)';
   document.getElementById('listAy').innerHTML = rows.length ? rows.join('') : '<div class="empty">Bu ayda taksit/nakit kaydı yok</div>';
   document.getElementById('listAyTek').innerHTML = rowsTek.length ? rowsTek.join('') : '<div class="empty">Bu ayda tek çekim yok</div>';
+  renderAylikKisi(ym);
+}
+
+function renderAylikKisi(ym){
+  const r2 = n => Math.round(n*100)/100;
+  const list = state.people.map(p => {
+    const t = { recv:{amount:0, paid:0}, pay:{amount:0, paid:0} };
+    ['recv','pay'].forEach(side => personItems(p.id, side).items.forEach(it => {
+      if (it.due.slice(0,7) !== ym) return;
+      t[side].amount += it.amount; t[side].paid += it.paid;
+    }));
+    const recvRem = r2(t.recv.amount - t.recv.paid), payRem = r2(t.pay.amount - t.pay.paid);
+    return { p, t, recvRem, payRem, net: r2(recvRem - payRem), total: r2(t.recv.amount + t.pay.amount) };
+  }).filter(x => x.total > 0)
+    .sort((a,b) => Math.abs(b.net) - Math.abs(a.net) || b.total - a.total);
+  const wrap = document.getElementById('listAyKisi');
+  if (!list.length){ wrap.innerHTML = '<div class="empty">Bu ayda kişi bazında kayıt yok</div>'; return }
+  wrap.innerHTML = list.map(({p, t, recvRem, payRem, net}) => {
+    const paid = r2(t.recv.paid + t.pay.paid), total = r2(t.recv.amount + t.pay.amount);
+    const desc = recvRem > 0 && payRem > 0 ? `Alacak ${TL(recvRem)} · Borç ${TL(payRem)}`
+      : recvRem === 0 && payRem === 0 ? 'Tamamı ödendi'
+      : `Ödenen ${TL(paid)} · Toplam ${TL(total)}`;
+    return `<div class="row" data-mperson="${p.id}" style="cursor:pointer">
+      <div class="who"><div class="n">${p.name}</div><div class="d">${desc}</div></div>
+      <div class="amt ${net>0?'pos':net<0?'neg':'mut'}">${net>0?'+':net<0?'−':''}${TL(Math.abs(net))}</div>
+    </div>`;
+  }).join('');
+  wrap.querySelectorAll('[data-mperson]').forEach(el => el.onclick = () => {
+    currentPerson = el.dataset.mperson; show('detay');
+  });
 }
 
 function nextMonths(n){
