@@ -504,7 +504,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.13.1</div>
+        <div class="hint">Sürüm 1.13.2</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -1405,9 +1405,11 @@ function allOpenItems(){
 function renderOzet(){
   const ref = todayISO();
   let ta=0, tb=0;
-  state.people.forEach(p => { const b=personBalance(p.id); ta+=b.alacak; tb+=b.borc; });
+  // Kişi bazında netleştirilir: aynı kişiyle hem alacak hem borç varsa fark tek tarafa yazılır.
+  const addNet = b => { const n = Math.round((b.alacak-b.borc)*100)/100; if (n>0) ta+=n; else tb-=n; };
+  state.people.forEach(p => addNet(personBalance(p.id)));
   if (state.settings.includeShared){
-    state.sharedAccounts.forEach(a => { const b=sharedBalance(a); ta+=b.alacak; tb+=b.borc; });
+    state.sharedAccounts.forEach(a => addNet(sharedBalance(a)));
   }
   document.getElementById('topAlacak').textContent = TL(ta);
   document.getElementById('topBorc').textContent = TL(tb);
