@@ -504,7 +504,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.13.2</div>
+        <div class="hint">Sürüm 1.13.3</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -2596,10 +2596,18 @@ document.getElementById('fileImport').onchange = async e => {
   if (!guardDelete()) return;
   if (!await askConfirm('Mevcut tüm verileriniz bu yedekle değiştirilecek. Yedekte olmayan kayıtlar silinir. Devam edilsin mi?', 'Geri yükle')) return;
   // Paylasilan hesaplar baskasinin verisi; yedekteki eski kopyalari degil guncel olanlar kalir.
-  state = { settings: { cutoffDay:23, payDay:1, includeShared:false, theme:'dark', ...data.settings }, people: data.people,
-            debts: Array.isArray(data.debts) ? data.debts : [],
-            payments: Array.isArray(data.payments) ? data.payments : [],
-            cards: Array.isArray(data.cards) ? data.cards : [],
+  // Satir kimlikleri (UUID) tum hesaplarda ortak birincil anahtardir: baska hesabin yedegindeki kimlikler sunucuda o hesaba aittir
+  // ve yazma RLS ile reddedilir (gonderim sonsuza dek takilir). Bu hesapta zaten olanlar korunur, olmayanlar yenilenir.
+  const mevcutId = (liste, id) => liste.some(x => x.id === id);
+  const kisiHarita = new Map(data.people.map(p => [p.id, mevcutId(state.people, p.id) ? p.id : uid()]));
+  const kartHarita = new Map((Array.isArray(data.cards) ? data.cards : []).map(c => [c.id, mevcutId(state.cards, c.id) ? c.id : uid()]));
+  state = { settings: { cutoffDay:23, payDay:1, includeShared:false, theme:'dark', ...data.settings },
+            people: data.people.map(p => ({ ...p, id: kisiHarita.get(p.id) })),
+            debts: (Array.isArray(data.debts) ? data.debts : []).filter(d => kisiHarita.has(d.personId))
+              .map(d => ({ ...d, id: mevcutId(state.debts, d.id) ? d.id : uid(), personId: kisiHarita.get(d.personId), cardId: d.cardId ? (kartHarita.get(d.cardId) || null) : (d.cardId ?? null) })),
+            payments: (Array.isArray(data.payments) ? data.payments : []).filter(p => kisiHarita.has(p.personId))
+              .map(p => ({ ...p, id: mevcutId(state.payments, p.id) ? p.id : uid(), personId: kisiHarita.get(p.personId) })),
+            cards: (Array.isArray(data.cards) ? data.cards : []).map(c => ({ ...c, id: kartHarita.get(c.id) })),
             shares: state.shares, sharedAccounts: state.sharedAccounts };
   migrateCards();
   migratePeopleOrder();
