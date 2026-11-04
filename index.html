@@ -504,7 +504,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.13.0</div>
+        <div class="hint">Sürüm 1.13.1</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -993,10 +993,15 @@ const Store = {
         this._setStatus('syncing');
         try {
           const prev = this._lastSynced || { settings:{cutoffDay:23,payDay:1}, people:[], debts:[], payments:[], cards:[] };
-          await this._syncTable('borc_cards', prev.cards, toSend.cards, r => ({ id:r.id, user_id:this._uid, ad:r.name, cutoff_day:r.cutoffDay, pay_day:r.payDay, is_default:!!r.isDefault }));
+          // Kart ekleme/guncelleme borclardan ONCE (borc_debts.card_id FK), kart silme ise borclardan SONRA:
+          // "Tum verileri sil" / yedekten geri yukleme ayni turda kartlari degistirir; eski kart, ona bagli
+          // borclar silinmeden silinmeye calisilirsa FK hatasi gonderimi kalici olarak kilitliyordu.
+          const cardRow = r => ({ id:r.id, user_id:this._uid, ad:r.name, cutoff_day:r.cutoffDay, pay_day:r.payDay, is_default:!!r.isDefault });
+          await this._syncTable('borc_cards', prev.cards, toSend.cards, cardRow, { skipDelete: true });
           await this._syncTable('borc_people', prev.people, toSend.people, r => ({ id:r.id, user_id:this._uid, ad:r.name, sort_order:r.sortOrder }));
           await this._syncTable('borc_debts', prev.debts, toSend.debts, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, kind:r.kind, amount:r.amount, date:r.date, aciklama:r.desc||null, count:r.count ?? null, first_due:r.firstDue ?? null, owe:!!r.owe, card_id:r.cardId||null, created_by:r.createdBy ?? null, approved:r.approved !== false }));
           await this._syncTable('borc_payments', prev.payments, toSend.payments, r => ({ id:r.id, user_id:this._uid, person_id:r.personId, amount:r.amount, date:r.date, dir:r.dir, note:r.note||null, created_by:r.createdBy ?? null, approved:r.approved !== false }));
+          await this._syncTable('borc_cards', prev.cards, toSend.cards, cardRow, { skipUpsert: true });
           if (this._syncedSettings(prev.settings) !== this._syncedSettings(toSend.settings)){
             const { error } = await sb.from('borc_ayarlar').upsert({ user_id:this._uid, cutoff_day:toSend.settings.cutoffDay, pay_day:toSend.settings.payDay, theme:toSend.settings.theme || 'dark', updated_at:new Date().toISOString() });
             if (error) throw error;
@@ -1018,7 +1023,7 @@ const Store = {
       this._setStatus('synced');
   },
 
-  async _syncTable(table, prevRows, curRows, toRow){
+  async _syncTable(table, prevRows, curRows, toRow, { skipUpsert = false, skipDelete = false } = {}){
     const prevById = new Map(prevRows.map(r=>[r.id, JSON.stringify(r)]));
     const curIds = new Set(curRows.map(r=>r.id));
     const removed = [...prevById.keys()].filter(id => !curIds.has(id));
@@ -1026,11 +1031,11 @@ const Store = {
     // (orn. arka planda kalmis) bir cihazin, baska cihazda duzenlenmis satirlari kendi
     // eski kopyasiyla ezmesine ve baska cihazda silinmis satirlari diriltmesine yol aciyordu.
     const changed = curRows.filter(r => prevById.get(r.id) !== JSON.stringify(r));
-    if (changed.length){
+    if (changed.length && !skipUpsert){
       const { error } = await sb.from(table).upsert(changed.map(toRow));
       if (error) throw error;
     }
-    if (removed.length){
+    if (removed.length && !skipDelete){
       const { error } = await sb.from(table).delete().in('id', removed);
       if (error) throw error;
     }
