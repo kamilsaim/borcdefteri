@@ -11,7 +11,7 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 çevrimdışı çalışma ile.
 
 ![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.14.1-2E7D5B)
-![Platform](https://img.shields.io/badge/platform-Web%20%C2%B7%20PWA-2E7D5B)
+![Platform](https://img.shields.io/badge/platform-Web%20%C2%B7%20Android%20%C2%B7%20iOS-2E7D5B)
 ![Yapı](https://img.shields.io/badge/yap%C4%B1-tek%20dosya%20HTML-0F1512)
 
 </div>
@@ -23,7 +23,7 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 ### 🤝 Borç / Alacak Takibi
 - **Kişi bazlı** alacak ve verecek kaydı — herkesin durumu tek bakışta
 - Kart **taksitli alışveriş** ve **nakit** borç/alacak kayıtları
-- **Kısmi ödeme takibi**: her kayda birden çok ödeme eklenebilir, kalan bakiye otomatik hesaplanır (FIFO — en eski açık kalem önce kapanır, fazla ödeme sonraki borca devreder)
+- **Kısmi ödeme takibi**: her kayda birden çok ödeme eklenebilir, kalan bakiye otomatik hesaplanır (FIFO — en eski açık kalem önce kapanır; kişinin tüm borcunu aşan ödeme "iade edilecek" olarak ayrıca görünür)
 - Kayıtları **düzenleme** — kişi, tutar ve tarih sonradan değiştirilebilir
 - Silme gibi geri alınamaz işlemler **uygulama içi onay penceresiyle** yapılır (tarayıcı popup'u değil)
 
@@ -47,7 +47,7 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 - Bir kişi kartını **o kişinin kendi hesabıyla paylaşın** — karşı taraf hesabı kendi perspektifinden (**aynalanmış**) görür
 - Üç kademeli yetki: **Görüntüleyen** (sadece görür) · **Katılımcı** (ödeme ekler, kendi eklediğini düzenler) · **Tam yetki** (borç ve ödeme ekler, düzenler)
 - **Davet + kabul**: karşı taraf kabul edene kadar hiçbir veri görünmez; hazır davet mesajı WhatsApp'tan gönderilebilir
-- Karşı tarafın eklediği kayıtlar **"onay bekliyor"** işaretiyle görünür, tek dokunuşla onaylanır
+- Karşı tarafın eklediği kayıtlar **"onay bekliyor"** işaretiyle görünür, onaylanana kadar bakiyeye girmez, tek dokunuşla onaylanır
 - Paylaşılan hesaplar isteğe bağlı olarak genel toplamlara dahil edilebilir (varsayılan kapalı)
 
 ### 🔔 Bildirimler
@@ -66,7 +66,7 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 - Ayarlar'da ayrıca senkron durumu gösterilir (Senkronize / Bekleyen değişiklik / Çevrimdışı)
 
 ### 💾 Diğer
-- JSON **yedek indirme / geri yükleme** (geri yükleme onay ister, çevrimdışıyken kapalıdır)
+- JSON **yedek indirme / geri yükleme** (dosya önce doğrulanır, bozuksa reddedilir; geri yükleme kaç kayıt geleceğini gösterip onay ister, çevrimdışıyken kapalıdır)
 - Ana ekrana eklenebilir **PWA** (favicon + apple-touch-icon)
 - Ayarlar'dan **hesabınızı ve tüm verilerinizi** uygulama içinden kalıcı olarak silebilirsiniz
 
@@ -99,7 +99,7 @@ silebilirsiniz.
 | Depolama | Supabase (birincil) + `localStorage` çevrimdışı önbellek, JSON yedekleme ile taşınabilir |
 | Bulut senkronu | [Supabase](https://supabase.com) — Postgres + Auth + Realtime (Google / Apple girişiyle) |
 | Güvenlik | Tüm tablolarda Row Level Security; paylaşım yetkisi ve kayıt sahipliği veritabanı politikalarıyla denetlenir |
-| Yayın | GitHub Pages |
+| Yayın | GitHub Pages (web) · Google Play (yerel Kotlin, 2.1) · App Store/TestFlight (yerel SwiftUI) |
 
 ## 📋 Sürüm Geçmişi
 
