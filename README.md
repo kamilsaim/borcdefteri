@@ -10,7 +10,7 @@ Kimden ne alacağınızı, kime ne borcunuz olduğunu, kart taksitlerini ve
 ödemeleri tek bir dosyada takip edin — hesabınıza bağlı bulut senkronu ve
 çevrimdışı çalışma ile.
 
-![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.13.3-2E7D5B)
+![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-v1.14.0-2E7D5B)
 ![Platform](https://img.shields.io/badge/platform-Web%20%C2%B7%20PWA-2E7D5B)
 ![Yapı](https://img.shields.io/badge/yap%C4%B1-tek%20dosya%20HTML-0F1512)
 
@@ -105,6 +105,7 @@ silebilirsiniz.
 
 | Sürüm | Yenilikler |
 |---|---|
+| **v1.14.0** | Hesap kuralları netleşti: kişinin tüm borcunu aşan ödeme artık sessizce kaybolmuyor, "Fazla tahsil edilen … iade edilecek" olarak bakiyede görünüyor; ortak hesapta onay bekleyen ödeme/borç onaylanana kadar bakiyeye girmiyor (sahip borçları da onaylayabiliyor); ödemesi olan bir borç silinirken "Ödemeleriyle birlikte sil / Yalnız borcu sil" seçeneği çıkıyor; eksik ya da bozuk yedek dosyası mevcut verilere hiç dokunmadan reddediliyor ve geri yükleme öncesi kaç kayıt silinip geleceği gösteriliyor; net sıfırken açık kalem varsa "Hesap kapalı" yerine "Net bakiye 0" |
 | **v1.13.3** | Yedekten geri yükleme: başka bir hesabın yedeği yüklenince satır kimlikleri sunucuda o hesaba ait olduğu için gönderim takılıyordu — bu hesapta olmayan kimlikler artık yenileniyor |
 | **v1.13.2** | Özet'te Alacağım/Borcum artık kişi bazında netleşiyor: aynı kişiyle hem alacak hem borç varsa fark tek tarafa yazılıyor (ör. 300 + 200 + 70 borç → Borcum 570) |
 | **v1.13.1** | Senkron düzeltmesi: tüm verileri silme ya da yedekten geri yükleme sonrası eski kart, ona bağlı taksitler silinmeden silinmeye çalışılıp gönderimi kilitleyebiliyordu — kart silme artık en sonda |

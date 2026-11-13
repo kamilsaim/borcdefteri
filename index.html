@@ -375,6 +375,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
 .confirm-btns button{flex:1;border-radius:12px;padding:12px;font-weight:800;font-size:.9rem}
 .confirm-btns .cCancel{background:var(--surface2);color:var(--muted);border:1px solid var(--line)}
 .confirm-btns .cOk{background:var(--borc);color:#1a0f0c}
+.confirm-btns.three{flex-direction:column}
+.confirm-btns .cAlt{background:var(--surface2);color:var(--borc);border:1px solid var(--borc)}
 </style>
 </head>
 <body>
@@ -504,7 +506,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.13.3</div>
+        <div class="hint">Sürüm 1.14.0</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -697,6 +699,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <div class="cmsg" id="cMsg"></div>
     <div class="confirm-btns">
       <button class="cCancel" id="cCancel">Vazgeç</button>
+      <button class="cAlt" id="cAlt" hidden>Diğer</button>
       <button class="cOk" id="cOk">Sil</button>
     </div>
   </div>
@@ -1230,21 +1233,27 @@ function schedule(debt){
   return items;
 }
 
+/* Kullanıcı metnini innerHTML'e güvenle basmak için. */
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
 /* ---- FIFO ödeme dağıtımı ----
    Kişinin ilgili yöndeki tüm açık kalemleri vade sırasına dizilir,
-   ödemeler tarih sırasıyla en eskiden düşülür. Kısmi kalan devreder. */
+   ödemeler tarih sırasıyla en eskiden düşülür. Kısmi kalan devreder.
+   Borç tarihinden önce girilen ödeme peşin sayılır. Kişinin tüm borcunu aşan tutar credit olarak kalır,
+   personBalance'ta ters yönde bakiye (fazla ödeme, iade edilecek) olarak görünür.
+   Onay bekleyen (approved===false) borç/ödeme hesaba girmez. */
 function personItems(personId, side, ds = state){ // side 'recv' (bana borçlu) | 'pay' (ben borçluyum)
   const items = [];
   ds.debts.filter(d => {
-    if (d.personId !== personId) return false;
+    if (d.personId !== personId || d.approved === false) return false;
     if (side === 'recv') return d.kind==='cash_out' || (d.kind==='installment' && !d.owe);
     return d.kind==='cash_in' || (d.kind==='installment' && d.owe);
   }).forEach(d => {
-    schedule(d).forEach(it => items.push({ debt: d, due: it.due, amount: it.amount, idx: it.idx, paid: 0, noDue: !!it.noDue }));
+    schedule(d).forEach(it => items.push({ debt: d, due: it.due, amount: it.amount, idx: it.idx, paid: 0, noDue: !!it.noDue, allocs: [] }));
   });
   items.sort((a,b) => a.due < b.due ? -1 : a.due > b.due ? 1 : 0);
   const dir = side === 'recv' ? 'in' : 'out';
-  const pays = ds.payments.filter(p => p.personId===personId && p.dir===dir)
+  const pays = ds.payments.filter(p => p.personId===personId && p.dir===dir && p.approved !== false)
                           .sort((a,b) => a.date < b.date ? -1 : 1);
   let credit = 0;
   pays.forEach(p => {
@@ -1255,6 +1264,7 @@ function personItems(personId, side, ds = state){ // side 'recv' (bana borçlu) 
       if (need <= 0) continue;
       const use = Math.min(need, rest);
       it.paid = Math.round((it.paid + use)*100)/100;
+      it.allocs.push({ payId: p.id, amount: use });
       rest = Math.round((rest - use)*100)/100;
     }
     credit += rest; // tüm borçlar kapandıysa fazla ödeme
@@ -1270,12 +1280,23 @@ function itemStatus(it, ref){
 }
 const CHIP = { odendi:'Ödendi', kismi:'Kısmi', gecikti:'Gecikti', bekliyor:'Bekliyor' };
 
+/* Fazla ödeme mahsup edilmez, ters yönde bakiye olur: kişinin fazla ödediği (creditR) benim borcum,
+   benim fazla ödediğim (creditP) alacağımdır. İki yöndeki fazlalar birbirinden düşülür. */
 function personBalance(personId, ds = state){
   const r = personItems(personId,'recv',ds), p = personItems(personId,'pay',ds);
-  const alacak = r.items.reduce((s,i)=>s+i.amount-i.paid,0) - r.credit;
-  const borc   = p.items.reduce((s,i)=>s+i.amount-i.paid,0) - p.credit;
+  const fazla = Math.round((r.credit - p.credit)*100)/100;
+  const fazlaBorc = Math.max(0, fazla), fazlaAlacak = Math.max(0, -fazla);
+  const alacak = r.items.reduce((s,i)=>s+i.amount-i.paid,0) + fazlaAlacak;
+  const borc   = p.items.reduce((s,i)=>s+i.amount-i.paid,0) + fazlaBorc;
   return { alacak: Math.max(0,Math.round(alacak*100)/100), borc: Math.max(0,Math.round(borc*100)/100),
-           creditR: r.credit, creditP: p.credit };
+           creditR: r.credit, creditP: p.credit, fazlaAlacak, fazlaBorc };
+}
+/* Onay bekleyen (karşı tarafın eklediği, henüz onaylanmamış) kayıtların toplamı; bakiyeye girmez. */
+function personPending(personId, ds = state){
+  const debts = ds.debts.filter(d => d.personId===personId && d.approved===false);
+  const pays = ds.payments.filter(p => p.personId===personId && p.approved===false);
+  return { count: debts.length + pays.length,
+           amount: Math.round([...debts, ...pays].reduce((s,x)=>s+x.amount,0)*100)/100 };
 }
 /* Aynalama yalnizca sunum katmanindadir: veritabaninda hicbir yon ters cevrilmez.
    Sahipte 'recv' (bana borclu) olan, davetlide 'pay' (ben borcluyum) olarak gorunur. */
@@ -1284,9 +1305,19 @@ const mirrorDir  = dir  => dir  === 'in'   ? 'out'  : 'in';
 
 const sharedAccount = shareId => state.sharedAccounts.find(a => a.shareId === shareId) || null;
 
+/* Detay başlığının altındaki not: yön + fazla ödeme + onay bekleyen. b, ekranda görünen yönde (aynalanmış) bakiye. */
+function balanceNote(b, pend, yon){
+  const parts = [];
+  const acik = b.alacak > 0 || b.borc > 0;
+  parts.push(yon || (acik ? 'Net bakiye 0' : 'Hesap kapalı'));
+  if (b.fazlaBorc > 0) parts.push(`Fazla tahsil edilen ${TL(b.fazlaBorc)} iade edilecek`);
+  if (b.fazlaAlacak > 0) parts.push(`Fazla ödenen ${TL(b.fazlaAlacak)} size iade edilecek`);
+  if (pend && pend.count) parts.push(`Onay bekleyen ${pend.count} kayıt (${TL(pend.amount)}) bakiyeye dahil değil`);
+  return parts.join(' · ');
+}
 function sharedBalance(acc){
   const b = personBalance(acc.personId, acc);
-  return { alacak: b.borc, borc: b.alacak };
+  return { alacak: b.borc, borc: b.alacak, fazlaAlacak: b.fazlaBorc, fazlaBorc: b.fazlaAlacak };
 }
 
 function sharedMonthDue(acc, ym){
@@ -1559,7 +1590,7 @@ function summaryCardData(personId, ds = state, ref = todayISO()){
     return { id: d.id, label, amount: d.amount };
   };
   const side = (s) => ds.debts.filter(d => {
-    if (d.personId !== personId) return false;
+    if (d.personId !== personId || d.approved === false) return false;
     if (s === 'recv') return d.kind === 'cash_out' || (d.kind === 'installment' && !d.owe);
     return d.kind === 'cash_in' || (d.kind === 'installment' && d.owe);
   }).map(rowOf);
@@ -1778,8 +1809,7 @@ function renderDetay(){
   const bal = document.getElementById('dBalance');
   bal.textContent = (net>0?'+':net<0?'−':'') + TL(Math.abs(net));
   bal.style.color = net>0?'var(--alacak)':net<0?'var(--borc)':'var(--muted)';
-  document.getElementById('dBalNote').textContent =
-    net>0 ? 'Size borçlu' : net<0 ? 'Siz borçlusunuz' : 'Hesap kapalı' ;
+  document.getElementById('dBalNote').textContent = balanceNote(b, personPending(p.id), net>0 ? 'Size borçlu' : net<0 ? 'Siz borçlusunuz' : null);
 
   const ref = todayISO();
   const debtsAll = state.debts.filter(d=>d.personId===p.id).sort((a,b)=>a.date<b.date?1:-1);
@@ -1806,8 +1836,9 @@ function renderDetay(){
         <span class="pa">${TL(it.amount)}</span></div>`;
     }).join('');
     return `<div class="debthead">
-        <div class="t">${pendMark('debts', d)}${kindTxt}${d.desc?` · <span style="font-weight:500;color:var(--muted)">${d.desc}</span>`:''}<br><span style="font-weight:400;font-size:.74rem;color:var(--muted)">${fmtDate(d.date)}</span></div>
+        <div class="t">${d.approved===false?'<span class="unapproved"></span>':''}${pendMark('debts', d)}${kindTxt}${d.desc?` · <span style="font-weight:500;color:var(--muted)">${d.desc}</span>`:''}<br><span style="font-weight:400;font-size:.74rem;color:var(--muted)">${fmtDate(d.date)}${d.approved===false?' · Onay bekliyor, bakiyeye dahil değil':''}</span></div>
         <span class="amt mut" style="font-size:.85rem">${TL(d.amount)}</span>
+        ${d.approved===false?`<button class="edit" data-approvedebt="${d.id}" aria-label="Onayla">✓</button>`:''}
         <button class="edit" data-editdebt="${d.id}">✎</button>
         <button class="del" data-deldebt="${d.id}">🗑</button>
       </div><div class="plan">${plan}</div>`;
@@ -1822,10 +1853,11 @@ function renderDetay(){
                : st==='gecikti'? '<span class="tick late">!</span>'
                : '<span class="tick"></span>';
     const rem = it ? Math.round((it.amount-it.paid)*100)/100 : d.amount;
-    return `<div class="prow">${tick}${pendMark('debts', d)}
-        <span class="pd">${fmtShort(d.date)}${d.owe?' · Başkasının kartı':''}${d.desc?` · ${d.desc}`:''}</span>
+    return `<div class="prow">${tick}${d.approved===false?'<span class="unapproved"></span>':''}${pendMark('debts', d)}
+        <span class="pd">${fmtShort(d.date)}${d.owe?' · Başkasının kartı':''}${d.desc?` · ${d.desc}`:''}${d.approved===false?' · Onay bekliyor':''}</span>
         ${it&&it.paid>0&&rem>0?`<span style="font-size:.72rem;color:var(--muted)">${TL(it.paid)} /</span>`:''}
         <span class="pa">${TL(d.amount)}</span>
+        ${d.approved===false?`<button class="edit" data-approvedebt="${d.id}" aria-label="Onayla">✓</button>`:''}
         <button class="edit" data-editdebt="${d.id}">✎</button>
         <button class="del" data-deldebt="${d.id}">🗑</button>
       </div>`;
@@ -1835,9 +1867,9 @@ function renderDetay(){
   document.getElementById('dPays').innerHTML = pays.length ? pays.map(x => `
     <div class="row">
       <div class="who"><div class="n" style="font-weight:600;font-size:.86rem">${x.approved===false?'<span class="unapproved"></span>':''}${pendMark('payments', x)}${x.dir==='in'?'Tahsilat':'Ödeme'}</div>
-      <div class="d">${fmtDate(x.date)}${x.note?` · ${x.note}`:''}${x.createdBy && x.createdBy!==Store._uid?' · karşı taraf ekledi':''}</div></div>
+      <div class="d">${fmtDate(x.date)}${x.note?` · ${esc(x.note)}`:''}${x.createdBy && x.createdBy!==Store._uid?' · karşı taraf ekledi':''}${x.approved===false?' · Onay bekliyor, bakiyeye dahil değil':''}</div></div>
       <div class="amt ${x.dir==='in'?'pos':'neg'}">${x.dir==='in'?'+':'−'}${TL(x.amount)}</div>
-      ${x.approved===false?`<button class="edit" data-approvepay="${x.id}">✓</button>`:''}
+      ${x.approved===false?`<button class="edit" data-approvepay="${x.id}" aria-label="Onayla">✓</button>`:''}
       <button class="edit" data-editpay="${x.id}">✎</button>
       <button class="del" data-delpay="${x.id}">🗑</button>
     </div>`).join('') : '<div class="empty">Ödeme yok</div>';
@@ -1849,24 +1881,51 @@ function renderDetay(){
   });
   document.querySelectorAll('[data-deldebt]').forEach(b => b.onclick = async () => {
     if (!guardDelete()) return;
-    if (!await askConfirm('Bu borç kaydı ve taksit planı silinsin mi?')) return;
-    state.debts = state.debts.filter(d=>d.id!==b.dataset.deldebt);
+    const id = b.dataset.deldebt;
+    const debt = state.debts.find(d=>d.id===id);
+    if (!debt) return;
+    // Bu borca FIFO'da düşülmüş ödemeler: borç tek başına silinirse diğer borçlara ya da fazla ödemeye kayar.
+    const side = (debt.kind==='cash_in' || (debt.kind==='installment' && debt.owe)) ? 'pay' : 'recv';
+    const alloc = {};
+    personItems(debt.personId, side).items.filter(it => it.debt.id===id)
+      .forEach(it => it.allocs.forEach(a => alloc[a.payId] = Math.round(((alloc[a.payId]||0) + a.amount)*100)/100));
+    const paidTotal = Math.round(Object.values(alloc).reduce((s,x)=>s+x,0)*100)/100;
+    let choice;
+    if (paidTotal > 0){
+      choice = await askConfirm(`Bu borca ${TL(paidTotal)} ödeme düşülmüş. Yalnız borç silinirse bu ödemeler kişinin diğer borçlarına ya da fazla ödemeye kayar.`,
+                                'Ödemeleriyle birlikte sil', 'Yalnız borcu sil');
+    } else {
+      choice = await askConfirm('Bu borç kaydı ve taksit planı silinsin mi?');
+    }
+    if (!choice) return;
+    state.debts = state.debts.filter(d=>d.id!==id);
+    if (choice === true && paidTotal > 0){
+      // Tamamı bu borca düşen ödeme silinir; kısmen düşenin tutarı o kadar azaltılır.
+      state.payments = state.payments.flatMap(x => {
+        if (!alloc[x.id]) return [x];
+        const kalan = Math.round((x.amount - alloc[x.id])*100)/100;
+        return kalan > 0 ? [{ ...x, amount: kalan }] : [];
+      });
+    }
     await Store.save(state); render();
   });
-  document.querySelectorAll('[data-approvepay]').forEach(b => b.onclick = async () => {
-    const x = state.payments.find(p=>p.id===b.dataset.approvepay);
+  // Onay doğrudan sunucuya yazılır; yerel kopya ve _lastSynced aynı satırla güncellenir (fark döngüsü tekrar göndermesin).
+  const approveRow = async (table, key, id) => {
+    const x = state[key].find(r=>r.id===id);
     if (!x) return;
-    const { error } = await sb.from('borc_payments').update({ approved:true }).eq('id', x.id);
-    if (error){ alert('Onaylanamadı: ' + error.message); return }
+    const { error } = await sb.from(table).update({ approved:true }).eq('id', x.id);
+    if (error){ toast('Onaylanamadı: ' + error.message); return }
     x.approved = true;
     Store._writeLocal(state);
     if (Store._lastSynced){
-      const t = Store._lastSynced.payments.find(p=>p.id===x.id);
+      const t = Store._lastSynced[key].find(r=>r.id===x.id);
       if (t){ t.approved = true; Store._setLastSynced(Store._lastSynced) }
     }
     Store._mirror();
     render();
-  });
+  };
+  document.querySelectorAll('[data-approvepay]').forEach(b => b.onclick = () => approveRow('borc_payments', 'payments', b.dataset.approvepay));
+  document.querySelectorAll('[data-approvedebt]').forEach(b => b.onclick = () => approveRow('borc_debts', 'debts', b.dataset.approvedebt));
   document.querySelectorAll('[data-editpay]').forEach(b => b.onclick = () => {
     const x = state.payments.find(p=>p.id===b.dataset.editpay);
     if (!x) return;
@@ -1910,13 +1969,17 @@ function guardDelete(){
   return false;
 }
 
-function askConfirm(msg, okLabel = 'Sil'){
+/* altLabel verilirse üçüncü düğme çıkar ve 'alt' döner. */
+function askConfirm(msg, okLabel = 'Sil', altLabel = null){
   return new Promise(resolve => {
     document.getElementById('cMsg').textContent = msg;
-    const okBtn = document.getElementById('cOk'), cancelBtn = document.getElementById('cCancel');
+    const okBtn = document.getElementById('cOk'), cancelBtn = document.getElementById('cCancel'), altBtn = document.getElementById('cAlt');
     okBtn.textContent = okLabel;
-    const cleanup = (result) => { ov('ovConfirm').classList.remove('open'); okBtn.onclick=null; cancelBtn.onclick=null; resolve(result) };
+    altBtn.hidden = !altLabel; if (altLabel) altBtn.textContent = altLabel;
+    altBtn.parentElement.classList.toggle('three', !!altLabel);
+    const cleanup = (result) => { ov('ovConfirm').classList.remove('open'); okBtn.onclick=null; cancelBtn.onclick=null; altBtn.onclick=null; resolve(result) };
     okBtn.onclick = () => cleanup(true);
+    altBtn.onclick = () => cleanup('alt');
     cancelBtn.onclick = () => cleanup(false);
     ov('ovConfirm').classList.add('open');
   });
@@ -2309,7 +2372,7 @@ function renderSharedDetay(){
   bal.textContent = (net>0?'+':net<0?'−':'') + TL(Math.abs(net));
   bal.className = 'balance ' + (net>0?'pos':net<0?'neg':'mut');
   document.getElementById('sBalNote').textContent =
-    `Alacak ${TL(b.alacak)} · Borç ${TL(b.borc)} · Yetki: ${ROLE_LABEL[acc.role]}`;
+    balanceNote(b, personPending(acc.personId, acc), `Alacak ${TL(b.alacak)} · Borç ${TL(b.borc)} · Yetki: ${ROLE_LABEL[acc.role]}`);
 
   const act = document.getElementById('sActions');
   act.innerHTML = [
@@ -2584,17 +2647,50 @@ document.getElementById('btnExport').onclick = () => {
   a.download = 'borc-defteri-yedek-'+todayISO()+'.json';
   a.click();
 };
+/* Geri yükleme mevcut veriyi (sunucu dahil) değiştirdiği için yedek eksiksiz değilse hiç dokunulmaz.
+   Zorunlu: settings nesnesi, people/debts/payments dizileri. cards eski yedeklerde olmayabilir (migrateCards kurar). */
+function backupError(data){
+  const isObj = v => v && typeof v === 'object' && !Array.isArray(v);
+  const isDate = v => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const isAmt = v => typeof v === 'number' && isFinite(v) && v > 0;
+  const isId = v => typeof v === 'string' && v.length > 0;
+  if (!isObj(data) || !isObj(data.settings)) return 'ayarlar bölümü yok';
+  for (const k of ['people','debts','payments']) if (!Array.isArray(data[k])) return `"${k}" listesi eksik ya da bozuk`;
+  if (data.cards != null && !Array.isArray(data.cards)) return '"cards" listesi bozuk';
+  const kisi = new Set();
+  for (const p of data.people){
+    if (!isObj(p) || !isId(p.id) || typeof p.name !== 'string') return 'bozuk kişi kaydı';
+    kisi.add(p.id);
+  }
+  const kart = new Set();
+  for (const c of data.cards || []){
+    if (!isObj(c) || !isId(c.id)) return 'bozuk kart kaydı';
+    kart.add(c.id);
+  }
+  for (const d of data.debts){
+    if (!isObj(d) || !isId(d.id) || !kisi.has(d.personId)) return 'kişisi olmayan ya da bozuk borç kaydı';
+    if (!['cash_out','cash_in','installment'].includes(d.kind) || !isAmt(d.amount) || !isDate(d.date)) return 'bozuk borç kaydı';
+    if (d.kind === 'installment' && !(Number.isInteger(d.count) && d.count >= 1)) return 'bozuk taksit sayısı';
+    if (d.firstDue != null && d.firstDue !== '' && !isDate(d.firstDue)) return 'bozuk vade tarihi';
+    if (d.cardId && data.cards && !kart.has(d.cardId)) return 'kartı olmayan taksit kaydı';
+  }
+  for (const x of data.payments){
+    if (!isObj(x) || !isId(x.id) || !kisi.has(x.personId)) return 'kişisi olmayan ya da bozuk ödeme kaydı';
+    if (!['in','out'].includes(x.dir) || !isAmt(x.amount) || !isDate(x.date)) return 'bozuk ödeme kaydı';
+  }
+  return null;
+}
 document.getElementById('btnImport').onclick = () => document.getElementById('fileImport').click();
 document.getElementById('fileImport').onchange = async e => {
   const f = e.target.files[0]; e.target.value = ''; if (!f) return;
   let data;
-  try {
-    data = JSON.parse(await f.text());
-    if (!data.settings || !Array.isArray(data.people)) throw 0;
-  } catch { toast('Geçersiz yedek dosyası'); return }
+  try { data = JSON.parse(await f.text()) } catch { toast('Geçersiz yedek dosyası'); return }
+  const hata = backupError(data);
+  if (hata){ toast('Yedek yüklenmedi: ' + hata); return }
   // Senkron fark mantigi yedekte olmayan her satiri sunucudan da siler; bu bir toplu silmedir.
   if (!guardDelete()) return;
-  if (!await askConfirm('Mevcut tüm verileriniz bu yedekle değiştirilecek. Yedekte olmayan kayıtlar silinir. Devam edilsin mi?', 'Geri yükle')) return;
+  if (!await askConfirm(`Yedekte ${data.people.length} kişi, ${data.debts.length} borç, ${data.payments.length} ödeme var. `
+      + `Şu anki ${state.people.length} kişi, ${state.debts.length} borç, ${state.payments.length} ödeme silinip yerine bunlar gelecek. Devam edilsin mi?`, 'Geri yükle')) return;
   // Paylasilan hesaplar baskasinin verisi; yedekteki eski kopyalari degil guncel olanlar kalir.
   // Satir kimlikleri (UUID) tum hesaplarda ortak birincil anahtardir: baska hesabin yedegindeki kimlikler sunucuda o hesaba aittir
   // ve yazma RLS ile reddedilir (gonderim sonsuza dek takilir). Bu hesapta zaten olanlar korunur, olmayanlar yenilenir.
