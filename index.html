@@ -465,8 +465,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <div class="balance" id="dBalance"></div>
     <div class="balnote" id="dBalNote"></div>
     <div class="actionrow">
-      <button class="abtn al" data-quick="in">₺ Para Aldım</button>
-      <button class="abtn ver" data-quick="out">₺ Para Verdim</button>
+      <button class="abtn al" data-quick="in">₺ Ödeme Aldım</button>
+      <button class="abtn ver" data-quick="out">₺ Ödeme Yaptım</button>
       <button class="abtn tk" data-quick="taksit">＋ Kart Taksit</button>
     </div>
     <h2 class="sec">Borçlar & Taksitler</h2>
@@ -506,7 +506,7 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
       <img src="logo.png" alt="Borç Defteri logo" style="width:48px;height:48px;border-radius:12px;object-fit:cover">
       <div>
         <div style="font-weight:700">Borç Defteri</div>
-        <div class="hint">Sürüm 1.14.0</div>
+        <div class="hint">Sürüm 1.14.1</div>
       </div>
     </div>
     <h2 class="sec">Hesap</h2>
@@ -560,8 +560,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <h3>Yeni Kayıt</h3>
     <button class="menuopt" data-new="taksit"><span class="mi" style="color:var(--brass)">💳</span><span>Kart ile Taksitli Alışveriş<small>Kartımla başkası adına yaptım</small></span></button>
     <button class="menuopt" data-new="taksit_borc"><span class="mi" style="color:var(--borc)">💳</span><span>Başkasının Kartıyla Taksit<small>Arkadaşımın kartıyla alışveriş yaptım</small></span></button>
-    <button class="menuopt" data-new="cash_out"><span class="mi" style="color:var(--borc)">↗</span><span>Nakit Verdim<small>Elden borç para verdim</small></span></button>
-    <button class="menuopt" data-new="cash_in"><span class="mi" style="color:var(--alacak)">↙</span><span>Nakit Aldım<small>Elden borç para aldım</small></span></button>
+    <button class="menuopt" data-new="cash_out"><span class="mi" style="color:var(--borc)">↗</span><span>Borç Verdim<small>Elden borç para verdim · yeni kayıt</small></span></button>
+    <button class="menuopt" data-new="cash_in"><span class="mi" style="color:var(--alacak)">↙</span><span>Borç Aldım<small>Elden borç para aldım · yeni kayıt</small></span></button>
     <button class="menuopt" data-new="pay"><span class="mi" style="color:var(--brass)">₺</span><span>Ödeme / Tahsilat<small>Borç ödendi ya da geri ödedim</small></span></button>
   </div>
 </div>
@@ -661,8 +661,8 @@ nav.tabs .ic{font-size:1.15rem;line-height:1}
     <h3>Ödeme / Tahsilat</h3>
     <label>Yön</label>
     <div class="seg">
-      <button id="segIn" class="in on">↙ Para Aldım</button>
-      <button id="segOut" class="out">↗ Para Verdim</button>
+      <button id="segIn" class="in on">↙ Ödeme Aldım</button>
+      <button id="segOut" class="out">↗ Ödeme Yaptım</button>
     </div>
     <label>Kişi</label>
     <select id="fPayPerson"></select>
@@ -1474,7 +1474,7 @@ function renderOzet(){
       amount: (p.dir==='in'?'+':'−')+TL(p.amount), cls: p.dir==='in'?'pos':'neg'})})),
     ...state.debts.map(d => ({date:d.date, html: rowHTML({
       name: personName(d.personId),
-      desc: (d.kind==='installment'?(d.count>1?`${d.count} taksit · `:'Tek çekim · '):(d.kind==='cash_out'?'Nakit verdim · ':'Nakit aldım · ')) + fmtShort(d.date) + (d.desc?` · ${d.desc}`:''),
+      desc: (d.kind==='installment'?(d.count>1?`${d.count} taksit · `:'Tek çekim · '):(d.kind==='cash_out'?'Borç verdim · ':'Borç aldım · ')) + fmtShort(d.date) + (d.desc?` · ${d.desc}`:''),
       amount: TL(d.amount), cls:'mut'})}))
   ].sort((a,b)=>a.date<b.date?1:-1).slice(0,8);
   document.getElementById('listSon').innerHTML = moves.length ? moves.map(m=>m.html).join('') : '<div class="empty">Henüz kayıt yok. + ile başlayın.</div>';
@@ -1822,7 +1822,7 @@ function renderDetay(){
   document.getElementById('dDebts').innerHTML = debts.length ? debts.map(d => {
     const map = (d.kind==='cash_in' || d.owe) ? pMap : rMap;
     const items = schedule(d).map(s => map[d.id+'#'+s.idx]).filter(Boolean);
-    const kindTxt = d.kind==='installment' ? `💳 ${d.count} Taksit${d.owe?' · Başkasının kartı':''}` : d.kind==='cash_out' ? '↗ Nakit Verdim' : '↙ Nakit Aldım';
+    const kindTxt = d.kind==='installment' ? `💳 ${d.count} Taksit${d.owe?' · Başkasının kartı':''}` : d.kind==='cash_out' ? '↗ Borç Verdim' : '↙ Borç Aldım';
     const plan = items.map(it => {
       const st = itemStatus(it, ref);
       const tick = st==='odendi' ? '<span class="tick full">✓</span>'
@@ -2014,7 +2014,7 @@ function openDebtForm(kind, personId, existing){
   if (isTaksit) kind = 'taksit';
   debtKind = kind;
   document.getElementById('fDebtTitle').textContent =
-    (existing?'Düzenle · ':'') + (debtOwe ? 'Başkasının Kartıyla Taksit' : kind==='taksit' ? 'Kart ile Taksitli Alışveriş' : kind==='cash_out' ? 'Nakit Verdim' : 'Nakit Aldım');
+    (existing?'Düzenle · ':'') + (debtOwe ? 'Başkasının Kartıyla Taksit' : kind==='taksit' ? 'Kart ile Taksitli Alışveriş' : kind==='cash_out' ? 'Borç Verdim' : 'Borç Aldım');
   document.getElementById('fTaksitWrap').style.display = kind==='taksit' ? 'block' : 'none';
   document.getElementById('fCashDateWrap').style.display = kind==='taksit' ? 'none' : 'block';
   fillPersonSelect(document.getElementById('fDebtPerson'), existing ? existing.personId : personId);
@@ -2376,8 +2376,8 @@ function renderSharedDetay(){
 
   const act = document.getElementById('sActions');
   act.innerHTML = [
-    canAddPayment(acc.role) ? '<button class="abtn al" data-sharedpay="in">₺ Para Aldım</button>' : '',
-    canAddPayment(acc.role) ? '<button class="abtn ver" data-sharedpay="out">₺ Para Verdim</button>' : '',
+    canAddPayment(acc.role) ? '<button class="abtn al" data-sharedpay="in">₺ Ödeme Aldım</button>' : '',
+    canAddPayment(acc.role) ? '<button class="abtn ver" data-sharedpay="out">₺ Ödeme Yaptım</button>' : '',
     canAddDebt(acc.role)    ? '<button class="abtn tk" data-shareddebt="taksit">＋ Kart Taksit</button>' : '',
   ].join('');
 
@@ -2394,7 +2394,7 @@ function renderSharedDetay(){
     const items = schedule(d).map(s => map[d.id+'#'+s.idx]).filter(Boolean);
     // Aynalama: sahibin 'recv' tarafi bende borc, 'pay' tarafi bende alacak.
     // Aynalama: sahibin 'cash_out'u bende 'nakit aldim'a karsilik gelir.
-    const kindTxt = d.kind==='installment' ? `💳 ${d.count} Taksit` : d.kind==='cash_out' ? '↙ Nakit Aldım' : '↗ Nakit Verdim';
+    const kindTxt = d.kind==='installment' ? `💳 ${d.count} Taksit` : d.kind==='cash_out' ? '↙ Borç Aldım' : '↗ Borç Verdim';
     const plan = items.map(it => {
       const st = itemStatus(it, ref);
       const tick = st==='odendi' ? '<span class="tick full">✓</span>'
@@ -2438,7 +2438,7 @@ let sharedPayCtx = null;
 function openSharedPayForm(acc, dir, existing){
   sharedPayCtx = { acc, dir: dir || (existing ? mirrorDir(existing.dir) : 'in'), editing: existing || null };
   document.getElementById('sharedPayTitle').textContent =
-    existing ? 'Ödemeyi Düzenle' : (sharedPayCtx.dir === 'in' ? 'Para Aldım' : 'Para Verdim');
+    existing ? 'Ödemeyi Düzenle' : (sharedPayCtx.dir === 'in' ? 'Ödeme Aldım' : 'Ödeme Yaptım');
   document.getElementById('fSharedPayAmount').value = existing ? existing.amount : '';
   document.getElementById('fSharedPayDate').value = existing ? existing.date : todayISO();
   document.getElementById('fSharedPayNote').value = existing ? (existing.note || '') : '';
