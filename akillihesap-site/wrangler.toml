@@ -1,0 +1,7 @@
+# Akıllı Hesap tanıtım + gizlilik sayfası (statik). Yayın: npx wrangler@4 deploy (bu klasörde).
+name = "akillihesap"
+compatibility_date = "2026-11-01"
+routes = [{ pattern = "akillihesap.kamilsaim.com", custom_domain = true }]
+
+[assets]
+directory = "./public"

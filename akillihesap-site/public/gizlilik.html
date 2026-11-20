@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gizlilik Politikası — Akıllı Hesap</title>
+<meta name="description" content="Akıllı Hesap uygulamasının gizlilik politikası: hangi veriler toplanır, nasıl saklanır, nasıl silinir.">
+<link rel="icon" href="logo.png">
+<link rel="stylesheet" href="stil.css">
+</head>
+<body>
+<main class="wrap">
+<header><img src="logo.png" alt=""><span>Akıllı Hesap</span></header>
+<h1>Gizlilik Politikası</h1>
+<p class="date">Son güncelleme: 20 Kasım 2026</p>
+
+<p>Akıllı Hesap; kişilerle borç ve alacaklarınızı, varlıklarınızı (altın, döviz, nakit), zekâtınızı ve her ay tekrarlanan gelir-giderlerinizi takip etmeniz için tasarlanmış bir uygulamadır. Uygulama daha önce “Borç Defteri” adıyla yayımlanıyordu. Bu politika hangi bilgileri topladığımızı, nasıl kullandığımızı, kimlerle paylaşıldığını ve verilerinizi nasıl silebileceğinizi açıklar.</p>
+<p>Uygulamanın geliştiricisi ve verilerinizin sorumlusu: Kamil Saim (<a href="mailto:saimkamil@gmail.com">saimkamil@gmail.com</a>). Uygulama kimliği: <code>com.kamilsaim.borcdefteri</code>.</p>
+
+<h2>Toplanan bilgiler</h2>
+<ul>
+<li><b>Hesap bilgileri:</b> Google ile giriş yaptığınızda Google'dan gelen ad, e-posta adresi ve profil fotoğrafı hesabınızı tanımlamak için alınır. Apple ile giriş yaptığınızda yalnızca Apple'ın paylaştığı e-posta adresi (“E-postamı gizle” seçerseniz Apple'ın verdiği yönlendirme adresi) ve izin verirseniz adınız alınır.</li>
+<li><b>Kendi girdiğiniz kayıtlar:</b> kişiler, borç/alacak kayıtları, ödemeler ve kart tanımları (kart adı, kesim/son ödeme günü); varlıklarınız (tür ve miktar), altın/döviz borç-alacakları, emanetler, zekât ödemeleri ve zekât yılı ayarları; aylık defterdeki gelir ve gider kalemleri (ad, tutar, ödeme günü, ödendi bilgisi). Kart numarası, CVV, banka hesap numarası veya herhangi bir ödeme aracı bilgisi istenmez ve saklanmaz.</li>
+<li><b>Paylaşım bilgileri:</b> Bir kişi kaydını ya da hesabınızın bölümlerini başka bir kullanıcıyla paylaşırsanız, davet ettiğiniz kişinin e-posta adresi ve seçtiğiniz bölümler daveti eşleştirmek için saklanır.</li>
+<li><b>Bildirim kimliği:</b> Bildirimlere izin verirseniz cihazınıza ait bildirim jetonu (Android'de Firebase Cloud Messaging, iPhone'da Apple Push Notification service) saklanır. Yalnızca bildirimi doğru cihaza ulaştırmak için kullanılır; reklam kimliği değildir.</li>
+</ul>
+<p>Uygulamada reklam ağı, analitik veya izleme (tracking) SDK'sı bulunmaz; konum, rehber, fotoğraf veya cihaz tanımlayıcıları toplanmaz.</p>
+
+<h2>Bilgiler ne için kullanılıyor</h2>
+<p>Toplanan bilgiler yalnızca uygulamanın çalışması için kullanılır: giriş, verilerinizin cihazlar arasında senkronizasyonu, hesaplamaların (bakiye, net durum, zekât, aylık kalan) gösterilmesi ve sizin istediğiniz paylaşımların gerçekleştirilmesi. Reklam, profilleme veya pazarlama amacıyla kullanılmaz, hiçbir şekilde satılmaz.</p>
+<p><b>Döviz ve altın kurları:</b> Varlıklarınızın TL karşılığını hesaplamak için uygulama güncel kurları herkese açık bir kur servisinden (finans.truncgil.com) indirir. Bu istekte sizinle ilgili hiçbir bilgi gönderilmez; hesaplama cihazınızda yapılır.</p>
+<p><b>Yedek dosyaları:</b> Yedek almak ya da başka bir uygulamanın (ör. Bereket) yedeğini yüklemek için seçtiğiniz dosya cihazınızda okunur; dosyanın kendisi sunucuya gönderilmez, yalnızca içindeki kayıtlar hesabınıza eklenir.</p>
+
+<h2>Verilerin saklanması ve güvenliği</h2>
+<p>Verileriniz altyapı sağlayıcısı Supabase üzerinde, Avrupa Birliği (Frankfurt, Almanya) bölgesindeki sunucularda saklanır. Türkiye dışında barındırıldığı için verileriniz yurt dışına aktarılmış sayılır. Erişim satır düzeyi güvenlik (RLS) kurallarıyla yalnızca sizinle ve açıkça paylaştığınız kullanıcılarla sınırlandırılmıştır; tüm aktarım HTTPS ile şifrelenir.</p>
+<p>Kimlik doğrulama Google veya Apple ile yapılır. Google API'lerinden alınan bilgilerin kullanımı, Google API Services User Data Policy ve onun Sınırlı Kullanım (Limited Use) şartlarına uygundur.</p>
+
+<h2>Paylaşım</h2>
+<p>Verileriniz üçüncü taraflara satılmaz ve pazarlama amacıyla paylaşılmaz. Yalnızca şu durumlarda paylaşılır:</p>
+<ul>
+<li><b>Kişi bazlı paylaşım (sizin isteğinizle):</b> Bir kişi kaydını o kişiyle ya da başka bir kullanıcıyla paylaştığınızda, o kayda ait kişi adı, borç/alacak kalemleri ve ödemeler davet ettiğiniz kullanıcıya görünür. Verdiğiniz role göre karşı taraf yalnızca görüntüleyebilir ya da kayıt ekleyebilir.</li>
+<li><b>Hesap paylaşımı (sizin isteğinizle):</b> Hesabınızı örneğin eşinizle paylaştığınızda, yalnızca seçtiğiniz bölümler — borç defteri, varlıklar ve zekât, aylık defter — davet ettiğiniz kullanıcıya <b>salt okunur</b> olarak görünür; karşı taraf bu kayıtları değiştiremez. Seçtiğiniz bölümleri istediğiniz zaman değiştirebilir ya da paylaşımı kaldırabilirsiniz.</li>
+<li><b>Hizmet sağlayıcılarla:</b> Yalnızca uygulamanın çalışması için gereken ölçüde — barındırma/veritabanı için Supabase, giriş için Google ve Apple, bildirim iletimi için Google Firebase Cloud Messaging ve Apple Push Notification service.</li>
+<li><b>Yasal zorunluluk halinde:</b> Yetkili makamların hukuka uygun talebi üzerine.</li>
+</ul>
+
+<h2>Bildirimler</h2>
+<p>Bildirimler; katıldığınız paylaşımlarda bir hareket olduğunda (kayıt eklenmesi, düzenlenmesi, silinmesi veya paylaşım daveti) ve açtığınız vade hatırlatmaları için gönderilir. Pazarlama amaçlı bildirim gönderilmez. Bildirimleri telefonunuzun ayarlarından istediğiniz zaman kapatabilirsiniz.</p>
+
+<h2>Saklama süresi</h2>
+<p>Verileriniz, siz silene kadar hesabınıza bağlı olarak saklanır. Silme işleminden sonra kayıtlar veritabanından derhal kaldırılır; sağlayıcı tarafındaki şifreli yedeklerden temizlenmesi en geç 30 gün sürer.</p>
+
+<h2 id="hesap-silme">Hesabınızı ve verilerinizi silme</h2>
+<p>Hesabınızı ve tüm kayıtlarınızı istediğiniz zaman kalıcı olarak silebilirsiniz:</p>
+<ul>
+<li><b>Uygulama içinden:</b> Ayarlar → “Hesabımı sil” düğmesiyle, iki aşamalı onayın ardından Akıllı Hesap'taki tüm verileriniz (kişiler, borçlar, ödemeler, kartlar, varlıklar, altın/döviz kayıtları, emanetler, zekât kayıtları, aylık defter, ayarlar ve paylaşım kayıtları) geri alınamaz şekilde silinir.</li>
+<li><b>Giriş hesabınız hakkında:</b> Aynı giriş hesabı geliştiricinin diğer uygulamalarında da kullanılabilir. Diğer uygulamalarda verinizin bulunmadığı durumda giriş hesabınız da tümüyle silinir; başka bir uygulamada veriniz varsa yalnızca Akıllı Hesap verileri silinir ve giriş hesabınız korunur. Uygulama, hangisinin gerçekleştiğini size bildirir.</li>
+<li><b>Uygulamaya erişiminiz yoksa:</b> Silme talebinizi girişte kullandığınız e-posta adresinden <a href="mailto:saimkamil@gmail.com?subject=Ak%C4%B1ll%C4%B1%20Hesap%20hesap%20silme">saimkamil@gmail.com</a> adresine gönderin. Talebiniz en geç 30 gün içinde işleme alınır.</li>
+</ul>
+
+<h2>Haklarınız</h2>
+<p>KVKK ve GDPR kapsamında verilerinize erişme, düzeltme, silme ve taşınabilirlik haklarına sahipsiniz. Verilerinizin tamamını uygulama içinden görüntüleyip düzenleyebilir, yedek dosyası olarak dışa aktarabilir ve silebilirsiniz. Diğer talepleriniz için aşağıdaki adresten bize ulaşabilirsiniz.</p>
+
+<h2>Çocukların gizliliği</h2>
+<p>Uygulama 13 yaşın altındaki çocuklara yönelik değildir ve bilerek çocuklardan veri toplamaz. Böyle bir verinin toplandığını fark edersek gecikmeksizin sileriz.</p>
+
+<h2>Politikadaki değişiklikler</h2>
+<p>Bu politika zaman zaman güncellenebilir. Değişiklikler bu sayfada yayımlanır ve yukarıdaki “Son güncelleme” tarihi yenilenir. Önemli değişikliklerde uygulama içinden bilgilendirme yapılır.</p>
+
+<h2>İletişim</h2>
+<p>Gizlilikle ilgili her türlü soru ve talep için: <a href="mailto:saimkamil@gmail.com">saimkamil@gmail.com</a></p>
+
+<footer>Akıllı Hesap · <a href="./">akillihesap.kamilsaim.com</a></footer>
+</main>
+</body>
+</html>
