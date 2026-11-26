@@ -20,3 +20,29 @@ code { background: var(--card); border: 1px solid var(--line); padding: 2px 6px;
 .links a { display: block; padding: 12px 0; font-weight: 700; border-top: 1px solid var(--line); text-decoration: none; }
 .links a:first-child { border-top: 0; }
 footer { margin-top: 40px; text-align: center; }
+
+/* Tanıtım sayfası */
+.genis { max-width: 1040px; }
+.hero { display: grid; gap: 24px; align-items: center; margin-top: 8px; }
+@media (min-width: 820px) { .hero { grid-template-columns: 1.05fr 1fr; } }
+.hero h1 { font-size: clamp(1.7rem, 4vw, 2.4rem); line-height: 1.2; color: var(--gr); }
+.giris { font-size: 1.08rem; color: var(--tx2); }
+.banner { width: 100%; border-radius: 22px; box-shadow: 0 10px 30px rgba(47,107,58,.18); }
+.indir { display: flex; flex-wrap: wrap; gap: 12px; margin: 20px 0 8px; }
+.magaza { display: inline-flex; align-items: center; gap: 10px; background: #111; color: #fff; text-decoration: none; border-radius: 14px; padding: 10px 20px 10px 14px; min-height: 52px; font-weight: 700; font-size: 1.15rem; line-height: 1.1; }
+.magaza svg { width: 28px; height: 28px; fill: #fff; }
+.magaza small { display: block; font-size: .7rem; font-weight: 500; opacity: .85; }
+.magaza:hover { background: var(--gr); }
+.kucuk { font-size: .88rem; color: var(--tx2); }
+.ozellikler { display: grid; gap: 14px; margin-top: 34px; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+.ozellik { margin-top: 0; box-shadow: 0 6px 18px rgba(60,40,10,.06); }
+.ozellik img { width: 64px; height: 64px; object-fit: contain; }
+.ozellik h2 { margin: 6px 0 6px; color: var(--gr); }
+.ozellik p { margin: 0; color: var(--tx2); font-size: .97rem; }
+.baslik { font-size: 1.4rem; margin-top: 44px; color: var(--gr); }
+.galeri { display: flex; gap: 14px; overflow-x: auto; scroll-snap-type: x mandatory; padding-bottom: 10px; }
+.galeri img { flex: 0 0 auto; width: 220px; border-radius: 18px; scroll-snap-align: start; box-shadow: 0 6px 18px rgba(60,40,10,.1); }
+.sss details { border-top: 1px solid var(--line); padding: 12px 0; }
+.sss details:first-child { border-top: 0; }
+.sss summary { font-weight: 700; cursor: pointer; }
+.sss p { margin: 8px 0 0; color: var(--tx2); }
